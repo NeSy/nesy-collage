@@ -1,0 +1,40 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.split {
+  width: 100%;
+  height: 100%;
+}
+
+.vertical {
+  display: flex;
+  flex-direction: row;
+}
+
+.horizontal {
+  display: flex;
+  flex-direction: column;
+}
+
+.pane {
+  position: relative;
+  overflow: hidden;
+}
+
+.selectable {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.selectable.selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px dotted #4f8cff;
+  pointer-events: none;
+  box-sizing: border-box;
+}

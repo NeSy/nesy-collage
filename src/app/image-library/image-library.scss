@@ -1,0 +1,20 @@
+.library {
+  padding: 10px;
+  border-right: 1px solid #ddd;
+  height: 100%;
+  overflow: auto;
+}
+
+.grid {
+  display: flex;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.thumb {
+  width: 100px;
+  object-fit: cover;
+  cursor: grab;
+  border-radius: 4px;
+}

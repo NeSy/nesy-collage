@@ -1,0 +1,16 @@
+@if (isLeaf()) {
+  <div class="selectable" (click)="layout.selectNode(node)" [class.selected]="layout.isNodeSelected(node.id)">
+    <app-photo-zone [node]="node"></app-photo-zone>
+  </div>
+}
+@else {
+  <div class="split" [class.vertical]="node.direction === 'vertical'" [class.horizontal]="node.direction === 'horizontal'">
+    <div class="pane" [style.flex]="node.ratio">
+      <app-split-container [node]="node.first!"></app-split-container>
+    </div>
+    <app-separator [node]="node" (click)="layout.selectSeparator(node)" [selected]="layout.isSeparatorSelected(node.id)"></app-separator>
+    <div class="pane" [style.flex]="1 - node.ratio!">
+      <app-split-container [node]="node.second!"></app-split-container>
+    </div>
+  </div>
+}

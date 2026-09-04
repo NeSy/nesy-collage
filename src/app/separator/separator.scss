@@ -1,0 +1,25 @@
+.separator {
+  background: #1976d2;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.separator:hover {
+  background: #0d47a1;
+}
+
+.vertical {
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.horizontal {
+  height: 6px;
+  width: 100%;
+  cursor: row-resize;
+}
+
+.selected {
+  background: #0d47a1;
+}

@@ -1,0 +1,7 @@
+<div class="photo-zone" [id]="node.id" cdkDropList (wheel)="zoom($event)" (cdkDropListDropped)="drop($event)" [cdkDropListConnectedTo]="['libraryList']">
+  @if (node.image) {
+    <img [src]="node.image.src" (load)="onImageLoad($event)" [style.transform]="getTransform()" (pointerdown)="startPan($event)" draggable="false">
+  } @else {
+    <div class="placeholder">Drop image here</div>
+  }
+</div>

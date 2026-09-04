@@ -1,0 +1,8 @@
+<div
+  cdkDrag
+  class="separator"
+  [class.vertical]="node.direction === 'vertical'"
+  [class.horizontal]="node.direction === 'horizontal'"
+  (cdkDragMoved)="dragMoved($event)"
+  [class.selected]="selected">
+</div>
