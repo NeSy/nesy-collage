@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
-import { LayoutNode, MySelection, SplitNode } from './layout.model';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { LayoutMode, LayoutNode, MySelection, Polaroid } from './layout.model';
 
 @Injectable({
   providedIn: 'root'
@@ -8,10 +8,18 @@ import { LayoutNode, MySelection, SplitNode } from './layout.model';
 export class LayoutService {
 
   private rootNode: LayoutNode = { id: crypto.randomUUID() };
-  private layoutSubject =  new BehaviorSubject<LayoutNode>(this.rootNode);
+  private layoutSubject =  new Subject();
   private selectionSubject = new BehaviorSubject<MySelection>({ type: 'node', node: this.rootNode });
 
-readonly selection$ = this.selectionSubject.asObservable();
+  private polaroidSubject = new BehaviorSubject<Polaroid[]>(Array.from({ length: 6 }, () => ({
+    id: crypto.randomUUID()
+  })));
+
+  get polaroids(): Polaroid[] {
+    return this.polaroidSubject.value;
+  }
+
+  readonly selection$ = this.selectionSubject.asObservable();
 
   private undoStack: { node: LayoutNode, selection: MySelection }[] = [];
   private redoStack: { node: LayoutNode, selection: MySelection }[] = [];
@@ -23,6 +31,21 @@ readonly selection$ = this.selectionSubject.asObservable();
     return this.rootNode;
   }
   
+  private layoutModeSubject = new BehaviorSubject<LayoutMode>('split');
+
+  readonly layoutMode$ = this.layoutModeSubject.asObservable();
+
+  get layoutMode(): LayoutMode {
+    return this.layoutModeSubject.value;
+  }
+
+  setLayoutMode(mode: LayoutMode): void {
+    if (mode === this.layoutMode) return;
+
+    this.layoutModeSubject.next(mode);
+    this.update();
+  }
+  
   selectNode(node: LayoutNode): void {
     this.selectionSubject.next({ type: 'node', node });
   }
@@ -31,8 +54,16 @@ readonly selection$ = this.selectionSubject.asObservable();
     this.selectionSubject.next({ type: 'separator', node });
   }
 
+  selectPolaroid(polaroid: Polaroid): void {
+    this.selectionSubject.next({ type: 'polaroid', node: polaroid });
+  }
+
   isNodeSelected(nodeId: string): boolean {
     return this.selection?.type === 'node' && this.selection.node.id === nodeId;
+  }
+
+  isPolaroidSelected(nodeId: string): boolean {
+    return this.selection?.type === 'polaroid' && this.selection.node.id === nodeId;
   }
 
   isSeparatorSelected(nodeId: string): boolean {
@@ -44,12 +75,11 @@ readonly selection$ = this.selectionSubject.asObservable();
   }
 
   update(): void {
-    const replacement = structuredClone(this.rootNode);
-    this.allDropZoneIds = LayoutService.listAllIds(replacement);
-    this.layoutSubject.next(structuredClone(replacement));
+    this.allDropZoneIds = this.layoutMode === 'polaroid' ? this.polaroids.map((one) => one.id) : LayoutService.listAllIds(this.rootNode);
+    this.layoutSubject.next(null);
   }
 
-  static listAllIds(rootNode: SplitNode | undefined): string[] {
+  static listAllIds(rootNode: LayoutNode | undefined): string[] {
     if(!rootNode) return [];
     if(!rootNode.direction) return [rootNode.id];
     return [...this.listAllIds(rootNode.first), ...this.listAllIds(rootNode.second)];
@@ -67,10 +97,22 @@ readonly selection$ = this.selectionSubject.asObservable();
     this.update();
   }
 
-  assignImage(node: LayoutNode, src: string): void {
+  assignImage(node: LayoutNode | Polaroid, src: string, takenAt?: string): void {
     this.pushHistory();
-    node.image = { src, offsetX: 0, offsetY: 0, scale: 1, __dirty: true };
+    node.image = { src, offsetX: 0, offsetY: 0, scale: 1, __dirty: true, blackAndWhite: false, takenAt } as typeof node.image;
     this.update();
+  }
+
+  toggleBlackAndWhite(): void {
+    if (this.selection?.type !== 'node' || !this.selection.node.image) return;
+
+    this.pushHistory();
+    this.selection.node.image.blackAndWhite = !this.selection.node.image?.blackAndWhite || false;
+    this.update();
+  }
+
+  isBlackAndWhiteSelected(): boolean {
+    return this.selection?.node.image?.blackAndWhite || false;
   }
 
   save(): void {
@@ -79,7 +121,10 @@ readonly selection$ = this.selectionSubject.asObservable();
 
     const safeName = filename.endsWith('.json') ? filename : `${filename}.json`;
     
-    const data = JSON.stringify(this.rootNode, null, 2);
+    const data = JSON.stringify({
+      mode: this.layoutMode,
+      data: this.layoutMode === 'polaroid' ? this.polaroids : this.rootNode
+    }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
@@ -110,7 +155,12 @@ readonly selection$ = this.selectionSubject.asObservable();
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result as string);
-        this.rootNode = parsed;
+        if (parsed.mode === 'polaroid') {
+          this.polaroidSubject.next(parsed.data);
+        } else {
+          this.rootNode = parsed;
+        }
+        this.setLayoutMode(parsed.mode);
         this.update();
       } catch (e) {
         console.error('Invalid JSON file', e);
@@ -121,7 +171,8 @@ readonly selection$ = this.selectionSubject.asObservable();
   }
 
   private pushHistory(): void {
-    this.undoStack.push({ node: structuredClone(this.rootNode), selection: this.selection});
+    if (this.layoutMode !== 'split') return;
+    this.undoStack.push({ node: structuredClone(this.rootNode), selection: this.selection });
     this.redoStack = [];
     if (this.undoStack.length > 100) {
       this.undoStack.shift();
@@ -129,8 +180,9 @@ readonly selection$ = this.selectionSubject.asObservable();
   }
   
   undo(): void {
+    if (this.layoutMode !== 'split') return;
     if (this.undoStack.length === 0) return;
-    this.redoStack.push({ node: structuredClone(this.rootNode), selection: this.selection});
+    this.redoStack.push({ node: structuredClone(this.rootNode), selection: this.selection });
     const { node, selection } = this.undoStack.pop()!;
     this.rootNode = node;
     this.selectionSubject.next(selection);
@@ -138,8 +190,9 @@ readonly selection$ = this.selectionSubject.asObservable();
   }
 
   redo(): void {
+    if (this.layoutMode !== 'split') return;
     if (this.redoStack.length === 0) return;
-    this.undoStack.push({ node: structuredClone(this.rootNode), selection: this.selection});
+    this.undoStack.push({ node: structuredClone(this.rootNode), selection: this.selection });
     const { node, selection } = this.redoStack.pop()!;
     this.rootNode = node;
     this.selectionSubject.next(selection);

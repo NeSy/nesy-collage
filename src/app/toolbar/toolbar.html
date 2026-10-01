@@ -1,7 +1,13 @@
 <div class="toolbar">
-  <button (click)="splitVertical()">Split V</button>
-  <button (click)="splitHorizontal()">Split H</button>
   <button (click)="save()">Save</button>
   <button (click)="load()">Load</button>
   <button (click)="print()">Print A4</button>
+  <button (click)="toggleBlackAndWhite()" [disabled]="!layout.selection?.node?.image" [attr.aria-pressed]="layout.isBlackAndWhiteSelected()">B&W</button>
+  @if (layout.layoutMode === 'split') {
+    <button class="toggle-mode-button" (click)="setLayoutMode('polaroid')">Change to polaroid mode</button>
+    <button (click)="splitVertical()">Split V</button>
+    <button (click)="splitHorizontal()">Split H</button>
+  } @else {
+    <button class="toggle-mode-button" (click)="setLayoutMode('split')">Change to split mode</button>
+  }
 </div>

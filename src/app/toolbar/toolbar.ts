@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutService } from '../layout/layout';
+import { LayoutMode } from '../layout/layout.model';
 
 @Component({
   selector: 'app-toolbar',
@@ -32,7 +33,15 @@ export class Toolbar {
     this.layout.load();
   }
 
+  toggleBlackAndWhite(): void {
+    this.layout.toggleBlackAndWhite();
+  }
+
   print(): void {
     window.print();
+  }
+
+  setLayoutMode(mode: LayoutMode): void {
+    this.layout.setLayoutMode(mode);
   }
 }

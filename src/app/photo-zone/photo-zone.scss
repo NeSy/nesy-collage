@@ -11,7 +11,7 @@
   position: relative;
   overflow: hidden;
 
-  background: #fafafa;
+  background: #ff000085;;
   touch-action: none;
 }
 
@@ -24,15 +24,16 @@
 
   color: #888;
   font-size: 14px;
+  background: #fafafa;
 }
 
 img {
   position: absolute;
   top: 0;
   left: 0;
-
-  min-width: 100%;
-  min-height: 100%;
+  
+  width: auto;
+  height: auto;
 
   user-select: none;
   transform-origin: top left;

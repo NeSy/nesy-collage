@@ -1,4 +1,7 @@
+export type LayoutMode = 'split' | 'polaroid';
+
 export type SplitDirection = 'horizontal' | 'vertical';
+
 
 export interface SplitNode {
   id: string;
@@ -9,6 +12,11 @@ export interface SplitNode {
   image?: ImagePlacement;
 }
 
+export interface Polaroid {
+  id: string;
+  image?: ImagePlacement;
+}
+
 export type LayoutNode = SplitNode;
 
 export interface ImagePlacement {
@@ -16,10 +24,14 @@ export interface ImagePlacement {
   offsetX: number;
   offsetY: number;
   scale: number;
+  blackAndWhite?: boolean;
+  takenAt?: string;
+  caption?: string;
   __dirty: boolean;
 }
 
 export type MySelection =
   | { type: 'node'; node: LayoutNode }
   | { type: 'separator'; node: LayoutNode }
+  | { type: 'polaroid'; node: Polaroid }
   | null;

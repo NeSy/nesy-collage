@@ -2,7 +2,7 @@
   <input type="file" multiple accept="image/*" (change)="onFileSelected($event)"/>
   <div class="grid" id="libraryList" [cdkDropListConnectedTo]="dropZonesIds" cdkDropList [cdkDropListData]="images" [cdkDropListSortingDisabled]="true">
     @for (img of images; track img) {
-      <img cdkDrag [cdkDragData]="img.data" [src]="img.data" class="thumb"/>
+      <img cdkDrag [cdkDragData]="img" [src]="img.data" class="thumb"/>
     }
   </div>
 </div>

@@ -1,0 +1,83 @@
+.polaroid-grid {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+
+  display: grid;
+  grid-template-columns: repeat(2, 9cm);
+  grid-template-rows: repeat(3, 9.5cm);
+
+  justify-content: center;
+  align-content: center;
+
+  column-gap: 0.3cm;
+  row-gap: 0.3cm;
+
+  overflow: hidden;
+
+  font-family: "Times New Roman", Times, serif;
+}
+
+.polaroid {
+  width: 9cm;
+  height: 9.5cm;
+  box-sizing: border-box;
+
+  background: white;
+
+  padding-top: 0.55cm;
+  padding-left: 0.75cm;
+  padding-right: 0.75cm;
+
+  cursor: pointer;
+
+  box-shadow: 0 0.05cm 0.2cm rgb(0 0 0 / 15%);
+}
+
+.photo {
+  width: 7.5cm;
+  height: 7.5cm;
+  overflow: hidden;
+}
+
+.caption {
+  width: 7.5cm;
+  height: 1.5cm;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  input {
+    width: 100%;
+    height: 100%;
+
+    box-sizing: border-box;
+
+    border: none;
+    outline: none;
+    background: transparent;
+
+    padding: 0;
+
+    text-align: center;
+
+    font-family: "Times New Roman", Times, serif;
+    font-size: 0.4cm;
+
+    color: #000;
+
+    &::placeholder {
+      color: #999;
+    }
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.polaroid.selected {
+  outline: 0.08cm solid #2196f3;
+  outline-offset: 0.1cm;
+}

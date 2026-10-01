@@ -1,3 +1,7 @@
 <div class="page">
-  <app-split-container [node]="node"></app-split-container>
+  @if (layout.layoutMode === 'split') {
+    <app-split-container [node]="node"></app-split-container>
+  } @else {
+    <app-polaroid-layout></app-polaroid-layout>
+  }
 </div>

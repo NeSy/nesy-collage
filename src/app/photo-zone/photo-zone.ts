@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, HostListener, Input } from '@angula
 import { CommonModule } from '@angular/common';
 import { CdkDropList, CdkDragDrop } from '@angular/cdk/drag-drop';
 
-import { LayoutNode } from '../layout/layout.model';
+import { LayoutNode, Polaroid } from '../layout/layout.model';
 import { LayoutService } from '../layout/layout';
 
 @Component({
@@ -14,7 +14,7 @@ import { LayoutService } from '../layout/layout';
   styleUrls: ['./photo-zone.scss']
 })
 export class PhotoZone {
-  @Input({ required: true }) node!: LayoutNode;
+  @Input({ required: true }) node!: LayoutNode | Polaroid;
 
   private isPanning = false;
 
@@ -28,33 +28,21 @@ export class PhotoZone {
 
   onImageLoad(event: Event): void {
     if (!this.node.image || !this.node.image.__dirty) return;
-
-    const imgEl = event.target as HTMLImageElement;
-    const container = imgEl.parentElement as HTMLElement;
-
-    const containerRect = container.getBoundingClientRect();
-
-    const imgNaturalWidth = imgEl.naturalWidth;
-    const imgNaturalHeight = imgEl.naturalHeight;
-
-    const scaleX = containerRect.width / imgNaturalWidth;
-    const scaleY = containerRect.height / imgNaturalHeight;
-
-    const scale = Math.max(scaleX, scaleY);
-    this.node.image.scale = scale;
-
-    const renderedWidth = imgNaturalWidth * scale;
-    const renderedHeight = imgNaturalHeight * scale;
-
-    this.node.image.offsetX = (containerRect.width - renderedWidth) / 2;
-    this.node.image.offsetY = (containerRect.height - renderedHeight) / 2;
-    this.node.image.__dirty = false;
-
-    this.layout.update();
+    this.resetImageLayout(event.target as HTMLImageElement);
   }
 
   startPan(event: PointerEvent): void {
     if (!this.node.image) return;
+
+    // Middle mouse button
+    if (event.button === 1) {
+      event.preventDefault();
+      this.resetPhoto(event);
+      return;
+    }
+
+    // Only left mouse button pans
+    if (event.button !== 0) return;
 
     event.preventDefault();
 
@@ -67,6 +55,41 @@ export class PhotoZone {
     this.startOffsetY = this.node.image.offsetY;
 
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if (!this.node.image) return;
+    if (!this.layout.isNodeSelected(this.node.id)) return;
+
+    let dx = 0;
+    let dy = 0;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        dx = -1;
+        break;
+      case 'ArrowRight':
+        dx = 1;
+        break;
+      case 'ArrowUp':
+        dy = -1;
+        break;
+      case 'ArrowDown':
+        dy = 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+
+    const pixel = 1 / this.node.image.scale;
+
+    this.node.image.offsetX += dx * pixel;
+    this.node.image.offsetY += dy * pixel;
+
+    this.layout.update();
   }
 
   @HostListener('pointermove', ['$event'])
@@ -90,7 +113,46 @@ export class PhotoZone {
 
   drop(event: CdkDragDrop<any>): void {
     this.node.image && (this.node.image.__dirty = true);
-    this.layout.assignImage(this.node, event.item.data);
+    this.layout.assignImage(this.node, event.item.data.data, event.item.data.takenAt);
+  }
+
+  resetPhoto(event: MouseEvent): void {
+    if (event.button !== 1 || !this.node.image) return;
+
+    event.preventDefault();
+
+    this.node.image.__dirty = true;
+
+    const img = event.currentTarget as HTMLImageElement;
+
+    this.resetImageLayout(img);
+  }
+
+  private resetImageLayout(imgEl: HTMLImageElement): void {
+    if (!this.node.image) return;
+
+    const container = imgEl.parentElement as HTMLElement;
+    const containerRect = container.getBoundingClientRect();
+
+    const scaleX = containerRect.width / imgEl.naturalWidth;
+    const scaleY = containerRect.height / imgEl.naturalHeight;
+
+    const scale = Math.max(scaleX, scaleY);
+
+    this.node.image.scale = scale;
+
+    const renderedWidth = imgEl.naturalWidth * scale;
+    const renderedHeight = imgEl.naturalHeight * scale;
+
+    this.node.image.offsetX =
+      (containerRect.width - renderedWidth) / 2;
+
+    this.node.image.offsetY =
+      (containerRect.height - renderedHeight) / 2;
+
+    this.node.image.__dirty = false;
+
+    this.layout.update();
   }
   
   zoom(event: WheelEvent): void {
@@ -122,5 +184,11 @@ export class PhotoZone {
         ${this.node.image.offsetY}px
       )
     `;
+  }
+
+  getFilter(): string {
+    if (!this.node.image) return 'none';
+    const image = this.node.image as typeof this.node.image & { blackAndWhite?: boolean };
+    return image.blackAndWhite ? 'grayscale(100%)' : 'none';
   }
 }

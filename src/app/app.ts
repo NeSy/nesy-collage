@@ -28,7 +28,6 @@ export class App {
     const isUndo = event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'z';
     const isRedo = (event.ctrlKey && event.key.toLowerCase() === 'y') || (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'z');
 
-    console.log(event)
     if (isUndo) {
       event.preventDefault();
       this.layout.undo();

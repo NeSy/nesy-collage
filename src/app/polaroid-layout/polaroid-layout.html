@@ -1,0 +1,21 @@
+<div class="polaroid-grid">
+  @for (polaroid of polaroids; track polaroid.id) {
+    <div class="polaroid">
+      <div
+        class="photo"
+        [class.selected]="layout.isNodeSelected(polaroid.id)"
+        (click)="layout.selectNode(polaroid)"
+      >
+        <app-photo-zone [node]="polaroid"></app-photo-zone>
+      </div>
+      <div class="caption">
+        <input
+          type="text"
+          [value]="getCaption(polaroid)"
+          (input)="updateCaption(polaroid, $any($event.target).value)"
+          placeholder="Ajouter une légende"
+        />
+      </div>
+    </div>
+  }
+</div>
