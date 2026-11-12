@@ -1,0 +1,115 @@
+<section
+  class="selection-tools"
+  [class.with-subtitle]="layout.mode === 'polaroid' && !!node"
+  [attr.aria-label]="'Selection tools' | t"
+>
+  <div class="selection-heading">
+    <span class="selection-name" [title]="title">{{ title }}</span>
+    <span class="selection-hint">
+      @if (layout.selection?.type === 'separator') {
+        {{ 'Arrow keys move 1 px · Delete removes the split' | t }}
+      } @else if (node?.image) {
+        {{ 'Drag to move · Scroll to zoom · Arrow keys move 1 px' | t }}
+      } @else {
+        {{ 'Choose a photo from the gallery or drag one into this frame' | t }}
+      }
+    </span>
+  </div>
+  @if (node; as selected) {
+    <div class="selection-actions">
+      @if (selected.image) {
+        <div class="zoom-controls" role="group" [attr.aria-label]="'Photo zoom' | t">
+          <button
+            type="button"
+            [attr.aria-label]="'Zoom out' | t"
+            [attr.title]="'Zoom out 5%' | t"
+            (click)="zoom(1 / 1.05)"
+            [disabled]="!photoReady"
+          >
+            −
+          </button>
+          <span>{{ 'Zoom' | t }}</span>
+          <button
+            type="button"
+            [attr.aria-label]="'Zoom in' | t"
+            [attr.title]="'Zoom in 5%' | t"
+            (click)="zoom(1.05)"
+            [disabled]="!photoReady"
+          >
+            +
+          </button>
+        </div>
+        <button
+          type="button"
+          (click)="center()"
+          [disabled]="!photoReady"
+          [attr.title]="'Center the photo at its current zoom' | t"
+        >
+          {{ 'Center' | t }}
+        </button>
+        <button
+          type="button"
+          (click)="resetCrop()"
+          [disabled]="!photoReady"
+          [attr.title]="'Fill the frame and reset the crop' | t"
+        >
+          {{ 'Reset crop' | t }}
+        </button>
+        <button
+          type="button"
+          class="remove-photo"
+          (click)="layout.removePhoto()"
+          [attr.title]="'Keep the frame and subtitle' | t"
+        >
+          {{ 'Remove photo' | t }}
+        </button>
+      }
+    </div>
+    @if (layout.mode === 'polaroid') {
+      <div class="subtitle-editor">
+        <div class="subtitle-heading">
+          <label for="frame-subtitle">{{ 'Subtitle' | t }}</label>
+          <span class="subtitle-count" aria-hidden="true"
+            >{{ (selected.subtitle || '').length }}/80</span
+          >
+        </div>
+        <div class="subtitle-entry">
+          <input
+            #subtitleInput
+            id="frame-subtitle"
+            type="text"
+            maxlength="80"
+            [attr.placeholder]="'A place, a date, a little memory…' | t"
+            aria-describedby="subtitle-help"
+            [attr.title]="'Printed in the white border. Click the border to edit.' | t"
+            [value]="selected.subtitle || ''"
+            (input)="setSubtitle($event)"
+            (blur)="endSubtitleEdit()"
+            (keydown.enter)="$any($event.target).blur()"
+            (keydown.escape)="$any($event.target).blur()"
+          />
+          <button
+            type="button"
+            class="subtitle-clear"
+            (click)="clearSubtitle()"
+            [disabled]="!selected.subtitle"
+            [attr.aria-label]="'Clear subtitle' | t"
+            [attr.title]="'Clear subtitle' | t"
+          >
+            ×
+          </button>
+          <button
+            type="button"
+            class="subtitle-done"
+            [attr.aria-label]="'Done' | t"
+            [attr.title]="'Done' | t"
+            (click)="subtitleInput.blur(); endSubtitleEdit(); workspace.showPanel('canvas')"
+          >
+            ✓
+          </button>
+        </div>
+        <p id="subtitle-help">{{ 'Printed in the white border. Click the border to edit.' | t }}</p>
+      </div>
+    }
+  }
+</section>

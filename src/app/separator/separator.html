@@ -1,8 +1,23 @@
 <div
+  role="separator"
+  tabindex="0"
+  [attr.aria-label]="'Resize photo zones' | t"
+  [attr.data-separator-id]="node.id"
+  [attr.aria-keyshortcuts]="
+    node.direction === 'vertical' ? 'ArrowLeft ArrowRight' : 'ArrowUp ArrowDown'
+  "
+  [attr.aria-orientation]="node.direction === 'vertical' ? 'vertical' : 'horizontal'"
+  [attr.aria-valuenow]="(node.ratio ?? 0.5) * 100"
+  aria-valuemin="10"
+  aria-valuemax="90"
+  (focus)="layoutService.selectSeparator(node)"
+  (blur)="dragEnded()"
+  (cdkDragStarted)="dragStarted()"
+  (cdkDragEnded)="dragEnded($event)"
   cdkDrag
   class="separator"
   [class.vertical]="node.direction === 'vertical'"
   [class.horizontal]="node.direction === 'horizontal'"
   (cdkDragMoved)="dragMoved($event)"
-  [class.selected]="selected">
-</div>
+  [class.selected]="selected"
+></div>

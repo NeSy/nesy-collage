@@ -34,7 +34,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  border: 2px dotted #4f8cff;
+  border: calc(2px / var(--preview-scale, 1)) solid #2563eb;
   pointer-events: none;
   box-sizing: border-box;
 }

@@ -1,7 +1,29 @@
-<div class="photo-zone" [id]="node.id" cdkDropList (wheel)="zoom($event)" (cdkDropListDropped)="drop($event)" [cdkDropListConnectedTo]="['libraryList']">
-  @if (node.image) {
-    <img [src]="node.image.src" (load)="onImageLoad($event)" [style.transform]="getTransform()" [style.filter]="getFilter()" (pointerdown)="startPan($event)" draggable="false">
+<div
+  class="photo-zone"
+  [id]="node.id"
+  cdkDropList
+  [cdkDropListAutoScrollDisabled]="true"
+  [cdkDropListSortingDisabled]="true"
+  (wheel)="zoom($event)"
+  (cdkDropListDropped)="drop($event)"
+  [cdkDropListConnectedTo]="['libraryList']"
+>
+  @if (node.image && assets.urlFor(node.image.src)) {
+    <img
+      [alt]="node.image.name || ('Collage photo' | t)"
+      [src]="assets.urlFor(node.image.src)"
+      (load)="onImageLoad($event)"
+      [style.transform]="getTransform()"
+      (pointerdown)="startPan($event)"
+      draggable="false"
+    />
   } @else {
-    <div class="placeholder">Drop image here</div>
+    <div class="placeholder">
+      {{
+        node.image
+          ? ('Add the original photo to reconnect:' | t) + ' ' + (node.image.name || ('Photo' | t))
+          : ('Drop image here' | t)
+      }}
+    </div>
   }
 </div>

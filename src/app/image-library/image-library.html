@@ -1,8 +1,126 @@
-<div class="library">
-  <input type="file" multiple accept="image/*" (change)="onFileSelected($event)"/>
-  <div class="grid" id="libraryList" [cdkDropListConnectedTo]="dropZonesIds" cdkDropList [cdkDropListData]="images" [cdkDropListSortingDisabled]="true">
-    @for (img of images; track img) {
-      <img cdkDrag [cdkDragData]="img" [src]="img.data" class="thumb"/>
+<section
+  class="library"
+  [attr.aria-label]="'Photo gallery' | t"
+  [attr.aria-busy]="importing"
+  [class.file-drag-over]="fileDragOver"
+  (dragover)="onFileDragOver($event)"
+  (dragleave)="onFileDragLeave($event)"
+  (drop)="onFilesDropped($event)"
+>
+  <div class="gallery-heading">
+    <h2>{{ 'Photos' | t }}</h2>
+    <span>{{ images.length }} {{ (images.length === 1 ? 'photo' : 'photos') | t }}</span>
+  </div>
+  <div class="upload-area">
+    <input
+      #fileInput
+      id="photo-files"
+      type="file"
+      hidden
+      multiple
+      accept="image/*"
+      [attr.aria-label]="'Add photos' | t"
+      [disabled]="importing"
+      (change)="onFileSelected($event)"
+    />
+    <button type="button" class="add-photos" [disabled]="importing" (click)="fileInput.click()">
+      {{ '+ Add photos' | t }}
+    </button>
+    <span class="drop-hint">{{ 'or drop image files here' | t }}</span>
+  </div>
+  @if (importing) {
+    <p class="import-progress" role="status">
+      {{ 'Preparing photos' | t: { current: importDone, total: importTotal } }}
+    </p>
+  }
+  @if (error) {
+    <p class="error" role="alert">{{ error | t }}</p>
+  }
+  @if (images.length) {
+    <div class="gallery-filters">
+      <input
+        type="search"
+        [attr.aria-label]="'Search photos' | t"
+        [attr.placeholder]="'Search photos' | t"
+        [value]="search()"
+        (input)="search.set($any($event.target).value); grid.scrollTop = 0"
+      />
+      <label class="unused-filter"
+        ><input
+          type="checkbox"
+          [checked]="unusedOnly()"
+          (change)="unusedOnly.set($any($event.target).checked); grid.scrollTop = 0"
+        />
+        {{ 'Unused only' | t }}</label
+      >
+    </div>
+    <p class="gallery-help">
+      @if (layout.selection?.type === 'node') {
+        {{ 'Click to place in the selected frame.' | t }}
+      } @else {
+        {{ 'Select a frame before choosing a photo.' | t }}
+      }
+    </p>
+  }
+  <div
+    class="grid"
+    #grid
+    role="region"
+    [attr.aria-label]="'Gallery photos' | t"
+    tabindex="0"
+    id="libraryList"
+    [cdkDropListConnectedTo]="dropZonesIds"
+    cdkDropList
+    [cdkDropListAutoScrollDisabled]="true"
+    [cdkDropListData]="images"
+    [cdkDropListSortingDisabled]="true"
+  >
+    @for (img of filteredImages; track img.data) {
+      <div class="gallery-slot">
+        @if (draggedImage() === img.data) {
+          <div class="gallery-drag-placeholder" aria-hidden="true">
+            <img [src]="img.thumbnail" alt="" draggable="false" />
+            <span class="photo-name">{{ img.name }}</span>
+          </div>
+        }
+        <button
+          type="button"
+          class="photo-tile"
+          cdkDrag
+          [cdkDragData]="img"
+          (cdkDragStarted)="draggedImage.set(img.data)"
+          (cdkDragEnded)="draggedImage.set(null)"
+          (click)="placeImage(img)"
+          [title]="img.name"
+          [attr.aria-label]="'Place photo' | t: { name: img.name }"
+        >
+          <div *cdkDragPlaceholder class="gallery-cdk-placeholder"></div>
+          <img
+            [src]="img.thumbnail"
+            [alt]="img.name"
+            class="thumb"
+            loading="lazy"
+            decoding="async"
+            width="100"
+            height="80"
+            draggable="false"
+          />
+          <span class="photo-name">{{ img.name }}</span>
+          @if (usage(img.data); as count) {
+            <span class="usage-badge" [attr.aria-label]="'Used count' | t: { count: count }"
+              >{{ 'Used' | t }} ×{{ count }}</span
+            >
+          }
+        </button>
+      </div>
     }
   </div>
-</div>
+  @if (!images.length && !importing) {
+    <p class="empty-gallery">
+      {{ 'Add your photos to start. Your originals stay at full resolution.' | t }}
+    </p>
+  }
+  @if (images.length && !filteredImages.length) {
+    <p role="status">{{ 'No photos match these filters.' | t }}</p>
+  }
+</section>

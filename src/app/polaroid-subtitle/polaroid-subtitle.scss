@@ -1,0 +1,23 @@
+:host {
+  position: absolute;
+  left: 3mm;
+  right: 3mm;
+  bottom: 0;
+  height: 12mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #292524;
+  font-family: 'Caveat', cursive;
+  font-weight: 400;
+  line-height: 1.05;
+  text-align: center;
+}
+
+span {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

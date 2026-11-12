@@ -1,5 +1,62 @@
 <app-toolbar></app-toolbar>
-<div class="layout">
-  <app-image-library [dropZonesIds]="layout.allDropZoneIds"></app-image-library>
-  <app-a4-canvas [node]="layout.layout"></app-a4-canvas>
+<div
+  class="layout"
+  [class.mobile-photos]="workspace.mobilePanel() === 'photos'"
+  [class.previewing]="workspace.printPreview()"
+>
+  <app-image-library
+    id="gallery-panel"
+    [attr.role]="workspace.narrow() ? 'tabpanel' : null"
+    [attr.aria-labelledby]="workspace.narrow() ? 'workspace-tab-photos' : null"
+    [dropZonesIds]="layout.allDropZoneIds"
+  ></app-image-library>
+  <app-a4-canvas
+    id="canvas-panel"
+    [attr.role]="workspace.narrow() ? 'tabpanel' : null"
+    [attr.aria-labelledby]="workspace.narrow() ? 'workspace-tab-' + workspace.mobilePanel() : null"
+    [node]="layout.layout"
+  ></app-a4-canvas>
 </div>
+<nav
+  class="mobile-tabs"
+  [attr.aria-label]="'Workspace views' | t"
+  role="tablist"
+  [class.previewing]="workspace.printPreview()"
+>
+  <button
+    id="workspace-tab-photos"
+    type="button"
+    role="tab"
+    aria-controls="gallery-panel"
+    [attr.aria-selected]="workspace.mobilePanel() === 'photos'"
+    [tabIndex]="workspace.mobilePanel() === 'photos' ? 0 : -1"
+    (click)="workspace.showPanel('photos')"
+    (keydown)="selectTab($event, 0)"
+  >
+    {{ 'Photos' | t }}
+  </button>
+  <button
+    id="workspace-tab-canvas"
+    type="button"
+    role="tab"
+    aria-controls="canvas-panel"
+    [attr.aria-selected]="workspace.mobilePanel() === 'canvas'"
+    [tabIndex]="workspace.mobilePanel() === 'canvas' ? 0 : -1"
+    (click)="workspace.showPanel('canvas')"
+    (keydown)="selectTab($event, 1)"
+  >
+    {{ 'Canvas' | t }}
+  </button>
+  <button
+    id="workspace-tab-edit"
+    type="button"
+    role="tab"
+    aria-controls="canvas-panel"
+    [attr.aria-selected]="workspace.mobilePanel() === 'edit'"
+    [tabIndex]="workspace.mobilePanel() === 'edit' ? 0 : -1"
+    (click)="workspace.showPanel('edit')"
+    (keydown)="selectTab($event, 2)"
+  >
+    {{ 'Edit' | t }}
+  </button>
+</nav>

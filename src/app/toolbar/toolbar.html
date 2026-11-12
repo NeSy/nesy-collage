@@ -1,13 +1,207 @@
-<div class="toolbar">
-  <button (click)="save()">Save</button>
-  <button (click)="load()">Load</button>
-  <button (click)="print()">Print A4</button>
-  <button (click)="toggleBlackAndWhite()" [disabled]="!layout.selection?.node?.image" [attr.aria-pressed]="layout.isBlackAndWhiteSelected()">B&W</button>
-  @if (layout.layoutMode === 'split') {
-    <button class="toggle-mode-button" (click)="setLayoutMode('polaroid')">Change to polaroid mode</button>
-    <button (click)="splitVertical()">Split V</button>
-    <button (click)="splitHorizontal()">Split H</button>
+<header class="project-bar">
+  <div class="project-identity">
+    <span class="app-name">PhotoArmaurie</span>
+    <span class="save-status" role="status" [class.save-error]="layout.saveState() === 'error'">
+      <span class="status-dot" aria-hidden="true"></span>
+      @switch (layout.saveState()) {
+        @case ('saved') {
+          {{ (workspace.narrow() ? 'Saved locally' : 'Saved on this device') | t }}
+        }
+        @case ('saving') {
+          {{ 'Saving…' | t }}
+        }
+        @case ('error') {
+          {{ 'Could not save locally' | t }}
+        }
+        @default {
+          {{ 'New project' | t }}
+        }
+      }
+    </span>
+    <select
+      class="language-picker"
+      [attr.aria-label]="'Language' | t"
+      [value]="i18n.language()"
+      (change)="i18n.setLanguage($any($event.target).value)"
+    >
+      <option value="en" lang="en">English</option>
+      <option value="fr" lang="fr">Français</option>
+    </select>
+  </div>
+  <div class="project-actions">
+    <div class="history-actions" role="group" [attr.aria-label]="'Edit history' | t">
+      <button
+        type="button"
+        [attr.aria-label]="'Undo' | t"
+        [attr.title]="'Undo · Ctrl/Command+Z' | t"
+        (click)="layout.undo()"
+        [disabled]="!layout.canUndo || workspace.printPreview()"
+      >
+        <span aria-hidden="true">↶</span><span class="history-label">{{ 'Undo' | t }}</span>
+      </button>
+      <button
+        type="button"
+        [attr.aria-label]="'Redo' | t"
+        [attr.title]="'Redo · Ctrl/Command+Shift+Z' | t"
+        (click)="layout.redo()"
+        [disabled]="!layout.canRedo || workspace.printPreview()"
+      >
+        <span aria-hidden="true">↷</span><span class="history-label">{{ 'Redo' | t }}</span>
+      </button>
+    </div>
+    <div class="project-disclosure" #projectMenu>
+      <button
+        type="button"
+        #projectTrigger
+        aria-controls="project-actions"
+        [attr.aria-expanded]="projectOpen()"
+        (click)="projectOpen.set(!projectOpen())"
+      >
+        {{ 'Project' | t }} <span aria-hidden="true">⌄</span>
+      </button>
+      @if (projectOpen()) {
+        <div
+          class="project-popover"
+          id="project-actions"
+          data-project-actions
+          role="group"
+          [attr.aria-label]="'Project actions' | t"
+        >
+          <button type="button" (click)="save()" [disabled]="layout.saving">
+            {{ (layout.saving ? 'Saving project file…' : 'Save project file') | t }}
+          </button>
+          <button type="button" (click)="load()">{{ 'Open project' | t }}</button>
+          <p>
+            {{
+              'Project files reference photos stored on this device. Keep your originals to open a project elsewhere.'
+                | t
+            }}
+          </p>
+          <button
+            type="button"
+            class="danger"
+            (click)="clearProject()"
+            [disabled]="layout.clearing"
+          >
+            {{ (layout.clearing ? 'Clearing…' : 'Clear project') | t }}
+          </button>
+        </div>
+      }
+    </div>
+    <button
+      type="button"
+      class="preview-toggle"
+      [attr.aria-label]="(workspace.printPreview() ? 'Back to editing' : 'Print preview') | t"
+      [attr.aria-pressed]="workspace.printPreview()"
+      (click)="workspace.togglePrintPreview()"
+    >
+      {{
+        (workspace.printPreview()
+          ? workspace.narrow()
+            ? 'Edit'
+            : 'Back to editing'
+          : workspace.narrow()
+            ? 'Preview'
+            : 'Print preview'
+        ) | t
+      }}
+    </button>
+    <button type="button" class="primary" (click)="print()">{{ 'Print A4' | t }}</button>
+  </div>
+</header>
+<div
+  [class.mobile-photos]="workspace.mobilePanel() === 'photos'"
+  [class.previewing]="workspace.printPreview()"
+  class="layout-tools"
+  role="group"
+  [attr.aria-label]="'Layout tools' | t"
+>
+  <div class="control-group" role="group" [attr.aria-label]="'Layout' | t">
+    <span class="layout-label">{{ 'Layout' | t }}</span>
+    <div class="layout-toggle">
+      <button
+        type="button"
+        [attr.aria-label]="'Split layout' | t"
+        [attr.aria-pressed]="layout.mode === 'tree'"
+        (click)="layout.setMode('tree')"
+      >
+        {{ 'Split' | t }}
+      </button>
+      <button
+        type="button"
+        [attr.aria-label]="'Polaroid grid' | t"
+        [attr.aria-pressed]="layout.mode === 'polaroid'"
+        (click)="layout.setMode('polaroid')"
+      >
+        {{ 'Polaroid' | t }}
+      </button>
+    </div>
+  </div>
+  @if (layout.mode === 'polaroid') {
+    <div class="control-group">
+      <label for="grid-columns">{{ 'Columns' | t }}</label>
+      <select
+        id="grid-columns"
+        [value]="layout.gridColumns"
+        (change)="layout.setGridColumns($any($event.target).value)"
+      >
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <button type="button" (click)="layout.addFrame()">{{ 'Add frame' | t }}</button>
+      <button
+        type="button"
+        (click)="layout.removeFrame()"
+        [disabled]="layout.photoZones.length <= 1 || layout.selection?.type !== 'node'"
+      >
+        {{ 'Remove frame' | t }}
+      </button>
+    </div>
   } @else {
-    <button class="toggle-mode-button" (click)="setLayoutMode('split')">Change to split mode</button>
+    <div class="control-group">
+      <button
+        type="button"
+        [attr.aria-label]="'Split vertically' | t"
+        [attr.title]="'Split the selected frame into left and right panes' | t"
+        (click)="splitVertical()"
+        [disabled]="layout.selection?.type !== 'node'"
+      >
+        {{ 'Split left/right' | t }}
+      </button>
+      <button
+        type="button"
+        [attr.aria-label]="'Split horizontally' | t"
+        [attr.title]="'Split the selected frame into top and bottom panes' | t"
+        (click)="splitHorizontal()"
+        [disabled]="layout.selection?.type !== 'node'"
+      >
+        {{ 'Split top/bottom' | t }}
+      </button>
+      <button
+        type="button"
+        (click)="layout.removeSelectedSeparator()"
+        [disabled]="layout.selection?.type !== 'separator'"
+      >
+        {{ 'Remove separator' | t }}
+      </button>
+    </div>
   }
 </div>
+@if (layout.error) {
+  <p class="notice error" role="alert">{{ layout.error | t }}</p>
+}
+@if (layout.storageError) {
+  <p class="notice error" role="status">{{ layout.storageError | t }}</p>
+}
+@if (layout.missingImages.length) {
+  <p class="notice" role="status">
+    {{
+      'Some photos are unavailable on this device. Add their original files to reconnect them, or drag replacement photos onto their frames.'
+        | t
+    }}
+  </p>
+}

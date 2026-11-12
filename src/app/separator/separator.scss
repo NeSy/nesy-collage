@@ -1,4 +1,6 @@
 .separator {
+  position: relative;
+  touch-action: none;
   background: #1976d2;
   z-index: 100;
   flex-shrink: 0;
@@ -22,4 +24,48 @@
 
 .selected {
   background: #0d47a1;
+}
+
+// Keep the visible split narrow while preserving a screen-sized pointer target.
+.separator::before {
+  content: '';
+  position: absolute;
+}
+.vertical::before {
+  top: 0;
+  bottom: 0;
+  width: calc(24px / var(--preview-scale, 1));
+  left: 50%;
+  transform: translateX(-50%);
+}
+.horizontal::before {
+  left: 0;
+  right: 0;
+  height: calc(24px / var(--preview-scale, 1));
+  top: 50%;
+  transform: translateY(-50%);
+}
+.separator::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 3px;
+  background: #fff;
+  pointer-events: none;
+}
+.vertical::after {
+  width: calc(2px / var(--preview-scale, 1));
+  height: calc(22px / var(--preview-scale, 1));
+}
+.horizontal::after {
+  height: calc(2px / var(--preview-scale, 1));
+  width: calc(22px / var(--preview-scale, 1));
+}
+@media print {
+  .separator::before,
+  .separator::after {
+    display: none;
+  }
 }

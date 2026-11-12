@@ -1,7 +1,103 @@
-<div class="page">
-  @if (layout.layoutMode === 'split') {
-    <app-split-container [node]="node"></app-split-container>
-  } @else {
-    <app-polaroid-layout></app-polaroid-layout>
+@if (workspace.printPreview()) {
+  <div class="print-preview-banner" role="status">
+    <strong>{{ 'Print preview · A4 portrait' | t }}</strong
+    ><span>{{ '210 × 297 mm · Print at 100% scale. Printer margins may vary.' | t }}</span>
+  </div>
+} @else {
+  <app-photo-tools
+    [page]="page"
+    [class.mobile-edit]="workspace.mobilePanel() === 'edit'"
+  ></app-photo-tools>
+}
+<div class="preview-viewport" #viewport>
+  <div class="preview-sheet" [style.width.px]="previewWidth()" [style.height.px]="previewHeight()">
+    <div
+      class="page"
+      #page
+      [class.print-view]="workspace.printPreview()"
+      [attr.inert]="workspace.printPreview() ? '' : null"
+      [class.polaroid-page]="layout.mode === 'polaroid'"
+      [attr.data-preview-scale]="previewScale()"
+      [style.--preview-scale]="previewScale()"
+      [style.transform]="'scale(' + previewScale() + ')'"
+    >
+      @if (layout.mode === 'tree') {
+        <app-split-container [node]="node"></app-split-container>
+      } @else {
+        <div
+          class="polaroid-grid"
+          [style.grid-template-columns]="'repeat(' + layout.gridColumns + ', minmax(0, 1fr))'"
+          [style.grid-template-rows]="'repeat(' + layout.gridRows + ', minmax(0, 1fr))'"
+        >
+          @for (
+            zone of layout.photoZones;
+            track zone.id + ':' + layout.gridColumns + ':' + layout.photoZones.length
+          ) {
+            <div class="polaroid-frame" [class.selected]="layout.isNodeSelected(zone.id)">
+              <div
+                class="polaroid-photo-select"
+                role="button"
+                tabindex="0"
+                [attr.aria-label]="'Select photo zone' | t"
+                [attr.aria-pressed]="layout.isNodeSelected(zone.id)"
+                (click)="layout.selectNode(zone)"
+                (keydown.enter)="layout.selectNode(zone)"
+                (keydown.space)="$event.preventDefault(); layout.selectNode(zone)"
+              >
+                <app-photo-zone [node]="zone"></app-photo-zone>
+              </div>
+              <app-polaroid-subtitle [subtitle]="zone.subtitle || ''"></app-polaroid-subtitle>
+              <button
+                type="button"
+                class="caption-edit"
+                [class.has-caption]="!!zone.subtitle"
+                [attr.aria-label]="'Edit subtitle for frame' | t: { number: $index + 1 }"
+                [attr.title]="'Click to edit the subtitle' | t"
+                (click)="editSubtitle(zone)"
+              >
+                @if (!zone.subtitle) {
+                  <span>{{ 'Add caption' | t }}</span>
+                }
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+  @if (showWelcome) {
+    <section class="welcome-panel" [attr.aria-label]="'Start your collage' | t">
+      <span class="welcome-eyebrow">{{ 'YOUR NEXT PHOTO STORY' | t }}</span>
+      <h1>{{ 'Make room for your memories.' | t }}</h1>
+      <p>{{ 'Choose photos, arrange your frames, and print your own A4 collage.' | t }}</p>
+      <button type="button" class="welcome-add" (click)="workspace.choosePhotos()">
+        {{ 'Choose photos' | t }}
+      </button>
+      <div class="layout-choices" role="group" [attr.aria-label]="'Choose a starting layout' | t">
+        <button
+          type="button"
+          [attr.aria-label]="'Use split layout' | t"
+          [attr.aria-pressed]="layout.mode === 'tree'"
+          (click)="layout.setMode('tree')"
+        >
+          <svg viewBox="0 0 80 64" aria-hidden="true">
+            <rect x="9" y="5" width="62" height="54" rx="3" />
+            <path d="M38 5v54M38 32h33" /></svg
+          ><span>{{ 'Split layout' | t }}</span>
+        </button>
+        <button
+          type="button"
+          [attr.aria-label]="'Use Polaroid grid' | t"
+          [attr.aria-pressed]="layout.mode === 'polaroid'"
+          (click)="layout.setMode('polaroid')"
+        >
+          <svg viewBox="0 0 80 64" aria-hidden="true">
+            <rect x="8" y="9" width="28" height="45" rx="2" />
+            <rect x="44" y="9" width="28" height="45" rx="2" />
+            <path d="M12 43h20M48 43h20" /></svg
+          ><span>{{ 'Polaroid grid' | t }}</span>
+        </button>
+      </div>
+    </section>
   }
 </div>

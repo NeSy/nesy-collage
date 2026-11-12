@@ -9,14 +9,19 @@
   height: 100%;
 
   position: relative;
-  overflow: hidden;
+  // A crop clips its image but must never become a drag-scroll container.
+  overflow: clip;
 
-  background: #ff000085;;
+  background: #fafafa;
   touch-action: none;
 }
 
 .placeholder {
   height: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  text-align: center;
+  overflow-wrap: anywhere;
 
   display: flex;
   align-items: center;
@@ -24,16 +29,15 @@
 
   color: #888;
   font-size: 14px;
-  background: #fafafa;
 }
 
 img {
   position: absolute;
   top: 0;
   left: 0;
-  
-  width: auto;
-  height: auto;
+
+  max-width: none;
+  max-height: none;
 
   user-select: none;
   transform-origin: top left;
