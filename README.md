@@ -1,4 +1,4 @@
-# PhotoArmaurie
+# nesy-collage
 
 An Angular app for arranging full-resolution photos on a printable A4 collage.
 

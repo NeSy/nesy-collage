@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "photo-armaurie": {
+    "nesy-collage": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -61,10 +61,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "photo-armaurie:build:production"
+              "buildTarget": "nesy-collage:build:production"
             },
             "development": {
-              "buildTarget": "photo-armaurie:build:development"
+              "buildTarget": "nesy-collage:build:development"
             }
           },
           "defaultConfiguration": "development"
