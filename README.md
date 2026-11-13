@@ -102,3 +102,5 @@ In a supporting browser, use its **Install** option or **Project → Install app
 When a new version is cached, **Project → Update app** becomes available. Updating saves pending project changes before reloading; a failed autosave leaves the current app open. No automatic reload interrupts editing. The desktop releases do not register this web service worker.
 
 The **PWA release** GitHub Actions workflow builds and tests the production PWA and uploads the ZIP on manual runs or `v*` tags. PWA tests check installation metadata, offline reloads with real imported originals and multiple pages, PDF output, browser Save As, cancellation, fallback downloads, and the install action.
+
+The public PWA is hosted at **https://nesy.github.io/nesy-collage/**. The **Publish GitHub Pages** workflow builds for the repository path, tests the production PWA, and deploys it after pushes to `main`. It can also be started manually. Photo imports and project contents stay on each visitor's device.
