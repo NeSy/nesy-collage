@@ -70,6 +70,27 @@ describe('layout validation', () => {
     expect(parseLayout({ ...photo(), image: { ...photo().image, src } }).image?.src).toBe(src);
   });
 
+  it('accepts multiple pages and validates their shared identity and active page', () => {
+    expect(
+      parseProject({
+        pages: [{ id: 'one' }, { id: 'two' }],
+        activePageIndex: 1,
+      }).root.id,
+    ).toBe('two');
+    for (const value of [
+      { pages: [] },
+      { pages: [{ id: 'same' }, { id: 'same' }] },
+      { pages: [{ id: 'one' }], activePageIndex: 2 },
+      { pages: Array.from({ length: 101 }, (_, i) => ({ id: `page${i}` })) },
+      { id: 'one', subtitleAuto: 'true' },
+      {
+        id: 'one',
+        gallery: [{ src: 'photo.jpg', name: 'Photo', date: '2026-13' }],
+      },
+    ])
+      expect(() => parseProject(value)).toThrow();
+  });
+
   it('validates gallery references before loading originals', () => {
     expect(() =>
       parseProject({ id: 'root', gallery: [{ src: 'blob:expired', name: 'Photo' }] }),

@@ -8,7 +8,7 @@ export interface LayoutPresentation {
 export type SplitDirection = 'horizontal' | 'vertical';
 
 export interface SplitNode {
-  /** Document-level display settings; stored only on the root. */
+  /** Page display settings; stored only on that page's root. */
   presentation?: LayoutPresentation;
   id: string;
   direction?: SplitDirection;
@@ -17,6 +17,8 @@ export interface SplitNode {
   second?: LayoutNode;
   image?: ImagePlacement;
   subtitle?: string;
+  /** True for a date caption; false also remembers an intentionally cleared caption. */
+  subtitleAuto?: boolean;
 }
 
 export type LayoutNode = SplitNode;

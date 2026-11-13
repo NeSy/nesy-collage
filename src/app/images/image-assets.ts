@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { LayoutNode } from '../layout/layout.model';
 import { ImageReference, isStoredImage } from './image-reference';
+import { photoMonth, readPhotoMonth } from './photo-date';
 
 export interface GalleryImage {
   name: string;
@@ -13,6 +14,7 @@ interface StoredImage {
   blob: Blob;
   thumbnail?: Blob;
   signature?: string;
+  date?: string;
 }
 interface LoadedImage {
   record: StoredImage;
@@ -89,7 +91,9 @@ export class ImageAssets implements OnDestroy {
       // Do not expose a reference until its original has committed successfully.
       transaction.oncomplete = () => resolve();
       transaction.onerror = transaction.onabort = () =>
-        reject(new Error('Could not store this photo. Browser storage may be full or disabled.'));
+        reject(
+          new Error('Could not store this photo. Browser storage may be full or disabled.'),
+        );
     });
   }
 
@@ -116,6 +120,15 @@ export class ImageAssets implements OnDestroy {
     return this.manifest.map((reference) => ({ ...reference }));
   }
 
+  dateFor(src: string, name?: string): string | undefined {
+    return (
+      this.loaded.get(src)?.record.date ??
+      this.manifest.find((entry) => entry.src === src)?.date ??
+      photoMonth(name) ??
+      (isStoredImage(src) ? undefined : photoMonth(src))
+    );
+  }
+
   hasFile(file: File): boolean {
     if (this.missing().some((reference) => reference.name === file.name)) return false;
     const signature = JSON.stringify([file.name, file.size, file.lastModified]);
@@ -131,7 +144,9 @@ export class ImageAssets implements OnDestroy {
   ): Promise<string> {
     const version = this.generation;
     const signature =
-      file instanceof File ? JSON.stringify([file.name, file.size, file.lastModified]) : undefined;
+      file instanceof File
+        ? JSON.stringify([file.name, file.size, file.lastModified])
+        : undefined;
     const duplicate =
       signature &&
       this.manifest.find(
@@ -140,12 +155,24 @@ export class ImageAssets implements OnDestroy {
     const missing = this.missing().filter((reference) => reference.name === name);
     if (duplicate && missing.length !== 1) return duplicate.src;
     const id = missing.length === 1 ? missing[0].src : `asset:${crypto.randomUUID()}`;
-    const record: StoredImage = { id, name, blob: file, thumbnail, signature };
+    const date = await readPhotoMonth(file, name);
+    const record: StoredImage = {
+      id,
+      name,
+      blob: file,
+      thumbnail,
+      signature,
+      ...(date ? { date } : {}),
+    };
     await this.write(record, version);
     if (this.destroyed || version !== this.generation) return '';
     const loaded = this.cache(record);
     if (!this.manifest.some((reference) => reference.src === id))
-      this.manifest.push({ src: id, name });
+      this.manifest.push({ src: id, name, ...(date ? { date } : {}) });
+    else if (date)
+      this.manifest = this.manifest.map((entry) =>
+        entry.src === id ? { ...entry, date } : entry,
+      );
     this.gallery.update((images) => [
       ...images.filter((image) => image.data !== id),
       { name, data: id, thumbnail: loaded.thumbnailUrl },
@@ -155,19 +182,29 @@ export class ImageAssets implements OnDestroy {
   }
 
   /** Resolve stable references, migrating legacy embedded images once on import. */
-  async prepareProject(root: LayoutNode, references: ImageReference[]): Promise<boolean> {
+  async prepareProject(
+    root: LayoutNode | readonly LayoutNode[],
+    references: ImageReference[],
+  ): Promise<boolean> {
     const version = ++this.generation;
+    const referenceDates = new Map(
+      references.map((reference) => [reference.src, reference.date]),
+    );
     const manifest = new Map(references.map((reference) => [reference.src, reference.name]));
     const placements: { src: string; name?: string }[] = [];
     const visit = (node: LayoutNode): void => {
       if (node.image) {
         placements.push(node.image);
-        manifest.set(node.image.src, node.image.name || manifest.get(node.image.src) || 'Photo');
+        manifest.set(
+          node.image.src,
+          node.image.name || manifest.get(node.image.src) || 'Photo',
+        );
       }
       if (node.first) visit(node.first);
       if (node.second) visit(node.second);
     };
-    visit(root);
+    if (Array.isArray(root)) root.forEach(visit);
+    else visit(root as LayoutNode);
     const images: GalleryImage[] = [];
     const missing: ImageReference[] = [];
     const nextManifest: ImageReference[] = [];
@@ -188,14 +225,25 @@ export class ImageAssets implements OnDestroy {
         this.cache(record);
         for (const image of placements) if (image.src === original) image.src = src;
       }
-      nextManifest.push({ src, name });
+      const date = referenceDates.get(original);
+      const reference: ImageReference = {
+        src,
+        name,
+        ...(date ? { date } : {}),
+      };
+      nextManifest.push(reference);
       if (isStoredImage(src)) {
         const record = this.loaded.get(src)?.record ?? (await this.read(src));
         if (version !== this.generation) return false;
         if (!record) {
-          missing.push({ src, name });
+          missing.push(reference);
           continue;
         }
+        if (!record.date) {
+          record.date = reference.date ?? (await readPhotoMonth(record.blob, name));
+          if (version !== this.generation) return false;
+        }
+        if (record.date) reference.date = record.date;
         const loaded = this.cache(record);
         images.push({ name, data: src, thumbnail: loaded.thumbnailUrl });
       } else {
@@ -258,7 +306,8 @@ export async function createThumbnail(file: Blob): Promise<Blob> {
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('Could not create an image preview.'))),
+        (blob) =>
+          blob ? resolve(blob) : reject(new Error('Could not create an image preview.')),
         'image/png',
       );
     });

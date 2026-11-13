@@ -1,6 +1,8 @@
 export interface ImageReference {
   src: string;
   name: string;
+  /** Capture month, without a timezone (YYYY-MM). */
+  date?: string;
 }
 
 export function isStoredImage(src: string): boolean {

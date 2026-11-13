@@ -1,9 +1,9 @@
-@if (workspace.printPreview()) {
+@if (active && workspace.printPreview()) {
   <div class="print-preview-banner" role="status">
     <strong>{{ 'Print preview · A4 portrait' | t }}</strong
     ><span>{{ '210 × 297 mm · Print at 100% scale. Printer margins may vary.' | t }}</span>
   </div>
-} @else {
+} @else if (active) {
   <app-photo-tools
     [page]="page"
     [class.mobile-edit]="workspace.mobilePanel() === 'edit'"
@@ -16,22 +16,22 @@
       #page
       [class.print-view]="workspace.printPreview()"
       [attr.inert]="workspace.printPreview() ? '' : null"
-      [class.polaroid-page]="layout.mode === 'polaroid'"
+      [class.polaroid-page]="mode === 'polaroid'"
       [attr.data-preview-scale]="previewScale()"
       [style.--preview-scale]="previewScale()"
       [style.transform]="'scale(' + previewScale() + ')'"
     >
-      @if (layout.mode === 'tree') {
+      @if (mode === 'tree') {
         <app-split-container [node]="node"></app-split-container>
       } @else {
         <div
           class="polaroid-grid"
-          [style.grid-template-columns]="'repeat(' + layout.gridColumns + ', minmax(0, 1fr))'"
-          [style.grid-template-rows]="'repeat(' + layout.gridRows + ', minmax(0, 1fr))'"
+          [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'"
+          [style.grid-template-rows]="'repeat(' + rows + ', minmax(0, 1fr))'"
         >
           @for (
-            zone of layout.photoZones;
-            track zone.id + ':' + layout.gridColumns + ':' + layout.photoZones.length
+            zone of zones;
+            track zone.id + ':' + columns + ':' + zones.length
           ) {
             <div class="polaroid-frame" [class.selected]="layout.isNodeSelected(zone.id)">
               <div
@@ -77,7 +77,7 @@
         <button
           type="button"
           [attr.aria-label]="'Use split layout' | t"
-          [attr.aria-pressed]="layout.mode === 'tree'"
+          [attr.aria-pressed]="mode === 'tree'"
           (click)="layout.setMode('tree')"
         >
           <svg viewBox="0 0 80 64" aria-hidden="true">
@@ -88,7 +88,7 @@
         <button
           type="button"
           [attr.aria-label]="'Use Polaroid grid' | t"
-          [attr.aria-pressed]="layout.mode === 'polaroid'"
+          [attr.aria-pressed]="mode === 'polaroid'"
           (click)="layout.setMode('polaroid')"
         >
           <svg viewBox="0 0 80 64" aria-hidden="true">

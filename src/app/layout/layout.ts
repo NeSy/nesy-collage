@@ -1,4 +1,5 @@
 import { I18n } from '../i18n';
+import { formatPhotoMonth } from '../images/photo-date';
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { ImageAssets } from '../images/image-assets';
@@ -28,7 +29,14 @@ export class LayoutService implements OnDestroy {
   constructor(
     private assets: ImageAssets,
     private i18n: I18n,
-  ) {}
+  ) {
+    this.languageSubscription = i18n.languageChanged.subscribe(() => {
+      this.initializeSubtitles(true);
+      this.update();
+    });
+  }
+
+  private languageSubscription;
 
   get canUndo(): boolean {
     return this.undoStack.length > 0;
@@ -50,7 +58,51 @@ export class LayoutService implements OnDestroy {
 
   private pendingFrame: number | null = null;
 
-  private rootNode: LayoutNode = { id: crypto.randomUUID() };
+  private pageNodes: LayoutNode[] = [{ id: crypto.randomUUID() }];
+  activePageIndex = 0;
+
+  get pages(): readonly LayoutNode[] {
+    return this.pageNodes;
+  }
+  private get rootNode(): LayoutNode {
+    return this.pageNodes[this.activePageIndex];
+  }
+  private set rootNode(node: LayoutNode) {
+    this.pageNodes[this.activePageIndex] = node;
+  }
+
+  selectPage(index: number): void {
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= this.pages.length ||
+      index === this.activePageIndex
+    )
+      return;
+    this.activePageIndex = index;
+    this.gesture = null;
+    this.update(true);
+    this.selectNode(this.photoZones[0]);
+  }
+
+  addPage(): void {
+    if (this.pages.length >= 100) return;
+    this.pushHistory();
+    const presentation = { mode: this.mode, columns: this.gridColumns };
+    this.pageNodes.push({ id: crypto.randomUUID(), presentation });
+    this.activePageIndex = this.pages.length - 1;
+    this.update(true);
+    this.selectNode(this.photoZones[0]);
+  }
+
+  removePage(): void {
+    if (this.pages.length <= 1) return;
+    this.pushHistory();
+    this.pageNodes.splice(this.activePageIndex, 1);
+    this.activePageIndex = Math.min(this.activePageIndex, this.pages.length - 1);
+    this.update(true);
+    this.selectNode(this.photoZones[0]);
+  }
   private layoutSubject = new BehaviorSubject<LayoutNode>(this.rootNode);
   private selectionSubject = new BehaviorSubject<MySelection>({
     type: 'node',
@@ -59,8 +111,16 @@ export class LayoutService implements OnDestroy {
 
   readonly selection$ = this.selectionSubject.asObservable();
 
-  private undoStack: { node: LayoutNode; selection: MySelection }[] = [];
-  private redoStack: { node: LayoutNode; selection: MySelection }[] = [];
+  private undoStack: {
+    pages: LayoutNode[];
+    activePageIndex: number;
+    selection: MySelection;
+  }[] = [];
+  private redoStack: {
+    pages: LayoutNode[];
+    activePageIndex: number;
+    selection: MySelection;
+  }[] = [];
 
   readonly layout$ = this.layoutSubject.asObservable();
   allDropZoneIds = [this.rootNode.id];
@@ -83,6 +143,7 @@ export class LayoutService implements OnDestroy {
     if ((mode !== 'tree' && mode !== 'polaroid') || mode === this.mode) return;
     this.pushHistory();
     this.rootNode.presentation = { mode, columns: this.gridColumns };
+    this.initializeSubtitles(true);
     this.refitPhotos();
     // A separator has no visual counterpart in a grid.
     if (this.selection?.type !== 'node' || !this.photoZones.includes(this.selection.node))
@@ -92,7 +153,12 @@ export class LayoutService implements OnDestroy {
 
   setGridColumns(value: string): void {
     const columns = Number(value);
-    if (!Number.isInteger(columns) || columns < 1 || columns > 4 || columns === this.gridColumns)
+    if (
+      !Number.isInteger(columns) ||
+      columns < 1 ||
+      columns > 4 ||
+      columns === this.gridColumns
+    )
       return;
     this.pushHistory();
     this.rootNode.presentation = { mode: this.mode, columns };
@@ -114,7 +180,11 @@ export class LayoutService implements OnDestroy {
   }
 
   removeFrame(): void {
-    if (this.mode !== 'polaroid' || this.selection?.type !== 'node' || this.photoZones.length <= 1)
+    if (
+      this.mode !== 'polaroid' ||
+      this.selection?.type !== 'node' ||
+      this.photoZones.length <= 1
+    )
       return;
     const selected = this.selection.node;
     const rows = this.gridRows;
@@ -176,11 +246,16 @@ export class LayoutService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.languageSubscription.unsubscribe();
     if (this.autosaveTimer !== null) clearTimeout(this.autosaveTimer);
     if (this.pendingFrame !== null) cancelAnimationFrame(this.pendingFrame);
   }
 
-  private snapshot(): { node: LayoutNode; selection: MySelection } {
+  private snapshot(): {
+    pages: LayoutNode[];
+    activePageIndex: number;
+    selection: MySelection;
+  } {
     // Copy placement metadata, retaining immutable image strings by reference.
     const copy = (node: LayoutNode): LayoutNode => ({
       ...node,
@@ -189,7 +264,8 @@ export class LayoutService implements OnDestroy {
       ...(node.first ? { first: copy(node.first) } : {}),
       ...(node.second ? { second: copy(node.second) } : {}),
     });
-    const node = copy(this.rootNode);
+    const pages = this.pageNodes.map(copy);
+    const node = pages[this.activePageIndex];
     const find = (current: LayoutNode, id: string): LayoutNode | undefined =>
       current.id === id
         ? current
@@ -197,8 +273,10 @@ export class LayoutService implements OnDestroy {
           (current.second && find(current.second, id));
     const selected = this.selection && find(node, this.selection.node.id);
     return {
-      node,
-      selection: selected && this.selection ? { type: this.selection.type, node: selected } : null,
+      pages,
+      activePageIndex: this.activePageIndex,
+      selection:
+        selected && this.selection ? { type: this.selection.type, node: selected } : null,
     };
   }
 
@@ -216,16 +294,19 @@ export class LayoutService implements OnDestroy {
     this.pushHistory();
     const originalImage = node.image;
     const originalSubtitle = node.subtitle;
+    const originalSubtitleAuto = node.subtitleAuto;
     node.direction = direction;
     node.ratio = 0.5;
     node.first = {
       id: crypto.randomUUID(),
       image: originalImage,
-      ...(originalSubtitle ? { subtitle: originalSubtitle } : {}),
+      ...(originalSubtitle !== undefined ? { subtitle: originalSubtitle } : {}),
+      ...(originalSubtitleAuto !== undefined ? { subtitleAuto: originalSubtitleAuto } : {}),
     };
     node.second = { id: crypto.randomUUID() };
     delete node.image;
     delete node.subtitle;
+    delete node.subtitleAuto;
     this.update(true);
     this.selectNode(node.first);
   }
@@ -233,8 +314,9 @@ export class LayoutService implements OnDestroy {
   setSubtitle(node: LayoutNode, value: string): void {
     if (node.direction || !this.photoZones.includes(node)) return;
     const subtitle = value.replace(/[\r\n]/g, ' ').slice(0, 80);
-    if ((node.subtitle ?? '') === subtitle) return;
+    if ((node.subtitle ?? '') === subtitle && node.subtitleAuto === false) return;
     this.recordGesture(`subtitle:${node.id}`);
+    node.subtitleAuto = false;
     if (subtitle) node.subtitle = subtitle;
     else delete node.subtitle;
     this.update();
@@ -258,7 +340,12 @@ export class LayoutService implements OnDestroy {
       node.image.offsetY += delta[1];
     } else {
       const pixels = node.direction === 'vertical' ? delta[0] : delta[1];
-      if (!pixels || !separatorExtent || !Number.isFinite(separatorExtent) || separatorExtent <= 0)
+      if (
+        !pixels ||
+        !separatorExtent ||
+        !Number.isFinite(separatorExtent) ||
+        separatorExtent <= 0
+      )
         return false;
       const oldRatio = node.ratio ?? 0.5;
       const ratio = Math.max(0.1, Math.min(0.9, oldRatio + pixels / separatorExtent));
@@ -274,8 +361,36 @@ export class LayoutService implements OnDestroy {
     if (node.direction || !this.photoZones.includes(node) || node.image?.src === src) return;
     this.pushHistory();
     node.image = { src, name, offsetX: 0, offsetY: 0, scale: 1, __dirty: true };
+    if (this.mode === 'polaroid') this.initializeSubtitle(node, true);
     this.refreshPhotoUsage();
     this.update();
+  }
+
+  private initializeSubtitle(node: LayoutNode, refresh = false): void {
+    if (!node.image || node.subtitleAuto === false || (node.subtitle && !node.subtitleAuto))
+      return;
+    if (!refresh && node.subtitleAuto && node.subtitle) return;
+    const date = this.assets.dateFor(node.image.src, node.image.name);
+    if (!date) {
+      if (node.subtitleAuto) delete node.subtitle;
+      return;
+    }
+    node.subtitle = formatPhotoMonth(date, this.i18n.language());
+    node.subtitleAuto = true;
+  }
+
+  refreshDateSubtitles(): void {
+    this.initializeSubtitles(true);
+    this.update();
+  }
+
+  private initializeSubtitles(refresh = false): void {
+    for (const page of this.pages) {
+      for (const node of LayoutService.listLeaves(page)) {
+        if (page.presentation?.mode === 'polaroid' || (refresh && node.subtitleAuto))
+          this.initializeSubtitle(node, refresh);
+      }
+    }
   }
 
   setPhotoTransform(
@@ -310,23 +425,31 @@ export class LayoutService implements OnDestroy {
 
   private refreshPhotoUsage(): void {
     const usage = new Map<string, number>();
-    for (const node of this.photoZones)
+    for (const node of this.pages.flatMap((page) => LayoutService.listLeaves(page)))
       if (node.image) usage.set(node.image.src, (usage.get(node.image.src) ?? 0) + 1);
     this.photoUsage.set(usage);
   }
 
   async save(): Promise<void> {
     if (this.saving) return;
-    const filename = window.prompt(this.i18n.t('Enter filename'), 'collage-layout.json');
-    if (!filename) return;
+    const desktop = window.desktop;
+    const filename = desktop ? null : window.prompt(this.i18n.t('Enter filename'), 'collage-layout.json');
+    if (!desktop && !filename) return;
     this.error = '';
     this.saving = true;
     try {
-      const blob = new Blob([this.serializeProject()], { type: 'application/json' });
+      const project = this.serializeProject();
+      if (desktop) {
+        await desktop.saveProject(project);
+        return;
+      }
+      const blob = new Blob([project], {
+        type: 'application/json',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+      a.download = filename!.endsWith('.json') ? filename! : `${filename}.json`;
       a.click();
       // Allow the browser to start the download before releasing the URL.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -340,10 +463,12 @@ export class LayoutService implements OnDestroy {
 
   async importLayout(text: string): Promise<boolean> {
     try {
-      const { root, gallery } = parseProject(JSON.parse(text));
-      if (!(await this.assets.prepareProject(root, gallery))) return false;
+      const { pages, activePageIndex, gallery } = parseProject(JSON.parse(text));
+      if (!(await this.assets.prepareProject(pages, gallery))) return false;
       this.pushHistory();
-      this.rootNode = root;
+      this.pageNodes = pages;
+      this.activePageIndex = activePageIndex;
+      this.initializeSubtitles(true);
       this.error = '';
       this.update(true);
       this.selectNode(this.photoZones[0]);
@@ -373,7 +498,8 @@ export class LayoutService implements OnDestroy {
       await this.assets.clear();
       if (this.pendingFrame !== null) cancelAnimationFrame(this.pendingFrame);
       this.pendingFrame = null;
-      this.rootNode = { id: crypto.randomUUID() };
+      this.pageNodes = [{ id: crypto.randomUUID() }];
+      this.activePageIndex = 0;
       this.photoZones = [this.rootNode];
       this.refreshPhotoUsage();
       this.allDropZoneIds = [this.rootNode.id];
@@ -394,7 +520,8 @@ export class LayoutService implements OnDestroy {
         }
       }
       this.saveState.set(previousSaveState);
-      this.error = 'Could not clear the project. Check browser storage permissions and try again.';
+      this.error =
+        'Could not clear the project. Check browser storage permissions and try again.';
       if (wasDirty) this.scheduleAutosave();
     } finally {
       this.clearing = false;
@@ -406,14 +533,19 @@ export class LayoutService implements OnDestroy {
     const gallery = new Map(
       this.assets.references().map((reference) => [reference.src, reference]),
     );
-    for (const node of this.photoZones) {
+    for (const node of this.pages.flatMap((page) => LayoutService.listLeaves(page))) {
       if (!node.image) continue;
       const { src, name } = node.image;
       if (src.startsWith('data:') || src.startsWith('blob:'))
         throw new Error('A photo is still being prepared for storage.');
       if (!gallery.has(src)) gallery.set(src, { src, name: name || 'Photo' });
     }
-    return JSON.stringify({ ...this.rootNode, gallery: [...gallery.values()] });
+    return JSON.stringify({
+      ...(this.pages.length === 1
+        ? this.rootNode
+        : { pages: this.pages, activePageIndex: this.activePageIndex }),
+      gallery: [...gallery.values()],
+    });
   }
 
   private scheduleAutosave(): void {
@@ -446,9 +578,11 @@ export class LayoutService implements OnDestroy {
     try {
       const stored = localStorage.getItem(LayoutService.storageKey);
       if (!stored) return;
-      const { root, gallery } = parseProject(JSON.parse(stored));
-      if (!(await this.assets.prepareProject(root, gallery))) return;
-      this.rootNode = root;
+      const { pages, activePageIndex, gallery } = parseProject(JSON.parse(stored));
+      if (!(await this.assets.prepareProject(pages, gallery))) return;
+      this.pageNodes = pages;
+      this.activePageIndex = activePageIndex;
+      this.initializeSubtitles(true);
       this.update(true);
       this.selectNode(this.photoZones[0]);
       this.saveState.set('saved');
@@ -499,8 +633,10 @@ export class LayoutService implements OnDestroy {
     this.gesture = null;
     if (this.undoStack.length === 0) return;
     this.redoStack.push(this.snapshot());
-    const { node, selection } = this.undoStack.pop()!;
-    this.rootNode = node;
+    const { pages, activePageIndex, selection } = this.undoStack.pop()!;
+    this.pageNodes = pages;
+    this.activePageIndex = activePageIndex;
+    this.initializeSubtitles(true);
     this.selectionSubject.next(selection);
     this.update(true);
   }
@@ -509,8 +645,10 @@ export class LayoutService implements OnDestroy {
     this.gesture = null;
     if (this.redoStack.length === 0) return;
     this.undoStack.push(this.snapshot());
-    const { node, selection } = this.redoStack.pop()!;
-    this.rootNode = node;
+    const { pages, activePageIndex, selection } = this.redoStack.pop()!;
+    this.pageNodes = pages;
+    this.activePageIndex = activePageIndex;
+    this.initializeSubtitles(true);
     this.selectionSubject.next(selection);
     this.update(true);
   }

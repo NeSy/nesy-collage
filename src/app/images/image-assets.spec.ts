@@ -6,6 +6,12 @@ import { createThumbnail, ImageAssets } from './image-assets';
 afterEach(() => vi.restoreAllMocks());
 
 describe('original photo assets', () => {
+  it('never infers a capture date from a generated storage ID', () => {
+    const assets = new ImageAssets();
+    expect(assets.dateFor('asset:20261225-1234-1234-1234-123456789abc')).toBeUndefined();
+    assets.ngOnDestroy();
+  });
+
   it('stores originals once and restores fresh display URLs from persistent references', async () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:display');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});

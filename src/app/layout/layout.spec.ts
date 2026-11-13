@@ -29,6 +29,118 @@ describe('LayoutService', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps page layouts independent and counts photo use across pages', () => {
+    service.assignImage(service.layout, 'shared.jpg');
+    const firstId = service.layout.id;
+    service.addPage();
+    service.assignImage(service.layout, 'shared.jpg');
+    service.splitNode(service.layout, 'vertical');
+    expect(service.pages).toHaveLength(2);
+    expect(service.photoUsage().get('shared.jpg')).toBe(2);
+    service.selectPage(0);
+    expect(service.layout.id).toBe(firstId);
+    expect(service.layout.direction).toBeUndefined();
+    expect(service.selection?.node).toBe(service.layout);
+    service.removePage();
+    expect(service.pages).toHaveLength(1);
+    expect(service.photoUsage().get('shared.jpg')).toBe(1);
+    service.undo();
+    expect(service.pages).toHaveLength(2);
+    expect(service.layout.id).toBe(firstId);
+    service.redo();
+    expect(service.pages).toHaveLength(1);
+  });
+
+  it('undoes page creation and restores the selected page on redo', () => {
+    service.setMode('polaroid');
+    service.setGridColumns('3');
+    service.addPage();
+    const secondId = service.layout.id;
+    expect(service.mode).toBe('polaroid');
+    expect(service.gridColumns).toBe(3);
+    service.undo();
+    expect(service.pages).toHaveLength(1);
+    service.redo();
+    expect(service.activePageIndex).toBe(1);
+    expect(service.layout.id).toBe(secondId);
+    expect(service.selection?.node).toBe(service.layout);
+  });
+
+  it('round trips all pages and gallery references through autosave', async () => {
+    service.assignImage(service.layout, 'first.jpg');
+    service.addPage();
+    service.setMode('polaroid');
+    service.assignImage(service.layout, 'second.jpg');
+    service.flushAutosave();
+    const restoredAssets = new ImageAssets();
+    const restored = new LayoutService(restoredAssets, new I18n());
+    try {
+      await restored.restoreLastProject();
+      expect(restored.pages).toHaveLength(2);
+      expect(restored.activePageIndex).toBe(1);
+      expect(restored.pages[0].image?.src).toBe('first.jpg');
+      expect(restored.layout.image?.src).toBe('second.jpg');
+      expect(restored.mode).toBe('polaroid');
+      expect(
+        restoredAssets
+          .references()
+          .map((entry) => entry.src)
+          .sort(),
+      ).toEqual(['first.jpg', 'second.jpg']);
+    } finally {
+      restored.ngOnDestroy();
+      restoredAssets.ngOnDestroy();
+    }
+  });
+
+  it('initializes date captions, translates automatic ones and preserves edits and cleared captions', () => {
+    const i18n = new I18n();
+    const dated = new LayoutService(assets, i18n);
+    try {
+      i18n.setLanguage('en');
+      dated.assignImage(dated.layout, 'IMG_20261225_123456.jpg');
+      expect(dated.layout.subtitle).toBeUndefined();
+      dated.setMode('polaroid');
+      expect(dated.layout.subtitle).toBe('December 2026');
+      i18n.setLanguage('fr');
+      expect(dated.layout.subtitle).toBe('Décembre 2026');
+      dated.addPage();
+      dated.assignImage(dated.layout, '2025-07-01.jpg');
+      expect(dated.layout.subtitle).toBe('Juillet 2025');
+      dated.setSubtitle(dated.layout, 'Our holiday');
+      dated.endGesture(`subtitle:${dated.layout.id}`);
+      i18n.setLanguage('en');
+      expect(dated.layout.subtitle).toBe('Our holiday');
+      expect(dated.pages[0].subtitle).toBe('December 2026');
+      dated.setSubtitle(dated.layout, '');
+      dated.setMode('tree');
+      dated.setMode('polaroid');
+      i18n.setLanguage('fr');
+      expect(dated.layout.subtitle).toBeUndefined();
+      dated.undo();
+      expect(dated.layout.subtitle).toBeUndefined();
+    } finally {
+      dated.ngOnDestroy();
+    }
+  });
+
+  it('uses the desktop save dialog instead of an unsupported filename prompt', async () => {
+    const saveProject = vi.fn().mockResolvedValue(undefined);
+    window.desktop = { saveProject };
+    const prompt = vi.spyOn(window, 'prompt');
+    try {
+      service.assignImage(service.layout, 'photo.jpg');
+      await service.save();
+      expect(prompt).not.toHaveBeenCalled();
+      expect(JSON.parse(saveProject.mock.calls[0][0]).image.src).toBe('photo.jpg');
+      expect(service.saving).toBe(false);
+      saveProject.mockRejectedValueOnce(new Error('Could not save the layout.'));
+      await service.save();
+      expect(service.error).toBe('Could not save the layout.');
+      expect(service.saving).toBe(false);
+    } finally { delete window.desktop; }
+  });
+
   it('coalesces geometry notifications without copying the tree or drop targets', () => {
     const listener = vi.fn();
     service.layout$.subscribe(listener);

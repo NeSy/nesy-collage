@@ -46,3 +46,6 @@ temp/
 
 # Misc
 *.tsbuildinfo
+
+# Desktop release artifacts
+release/

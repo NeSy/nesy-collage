@@ -1,3 +1,4 @@
+import { PageNavigation } from '../page-navigation/page-navigation';
 import { I18n, TranslatePipe } from '../i18n';
 import {
   ChangeDetectionStrategy,
@@ -14,7 +15,7 @@ import { LayoutService } from '../layout/layout';
 @Component({
   selector: 'app-toolbar',
   standalone: true,
-  imports: [TranslatePipe, CommonModule],
+  imports: [TranslatePipe, CommonModule, PageNavigation],
   templateUrl: './toolbar.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./toolbar.scss'],
@@ -77,6 +78,11 @@ export class Toolbar {
         if (!this.layout.error) this.workspace.showPanel('canvas');
       });
     }
+  }
+
+  removePage(): void {
+    if (window.confirm(this.i18n.t('Remove this page and its frames?')))
+      this.layout.removePage();
   }
 
   print(): void {

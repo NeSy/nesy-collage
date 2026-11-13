@@ -81,7 +81,7 @@ Each gallery photo now has a fixed grid slot. A muted, noninteractive copy remai
 
 The Polaroid white border is a separate caption button, with a translated frame-specific accessible name. It selects the corresponding frame, opens mobile Edit when needed, and focuses the subtitle field after rendering. The dedicated editor uses Caveat, shows the character limit and print-placement hint, and provides clear and done actions. Live updates retain the existing undo grouping and autosave. Caption edit buttons are hidden in print and print preview.
 
-A shared reactive translation service and template pipe support English and French without external requests. Browser language supplies the initial default; a separate local-storage language key preserves explicit choices. Changing language updates document language, controls, accessibility labels, messages, and project dialogs without changing photo references or caption contents. Preference storage failures leave language switching available for the session. Tests cover browser defaults, persistent switching, French mobile sizing, caption selection/focus/undo, and source-slot stability during a drag over the canvas.
+A shared reactive translation service and template pipe support English, French, and German without external requests. Browser language supplies the initial default; a separate local-storage language key preserves explicit choices. Changing language updates document language, controls, accessibility labels, messages, and project dialogs without changing photo references or manually edited captions. Automatic date captions follow the selected language. Preference storage failures leave language switching available for the session. Tests cover browser defaults, persistent switching, French and German mobile sizing, caption selection/focus/undo, and source-slot stability during a drag over the canvas.
 
 ## Verification
 
@@ -90,3 +90,17 @@ Unit tests cover import validation, frame batching, history references and group
 These changes remove known work and bound preview sizes; they do not establish a measured frame-rate or heap improvement. Recursive components still use eager change detection because nodes mutate in place. An OnPush migration would require reactive state or immutable updates first. Physical printer margins remain dependent on the printer and print dialog.
 
 For further profiling, use the same collage with 20–50 high-resolution photos and compare pan/zoom and separator drag traces in browser performance tools: long tasks, frame times, decoded-image memory, and heap use. Production bundle size is not a proxy for these interaction costs.
+
+## Multiple pages and automatic date subtitles
+
+The layout service owns an ordered page list and active page index. Layout controls and drop targets operate on the active page; gallery usage, history, serialization, clearing, and printing cover every page. Single-page exports keep their legacy root shape. Multi-page exports use `pages`, `activePageIndex`, and a shared `gallery`; validation bounds page count and enforces globally unique node IDs. Inactive canvases remain offscreen with document geometry so images finish fitting before printing. Print CSS emits all canvases in document order with a page break between them.
+
+Photo imports use exifr to read capture dates and metadata titles locally, then fall back to recognizable dates in filenames. A timezone-free `YYYY-MM` value is retained with gallery references and original records. Existing original records are inspected on restore when they have no capture month. Polaroid frames mark automatic subtitles explicitly; manual edits and intentional clearing opt out. Language changes refresh automatic subtitles across pages, including pages currently using split layouts. No file modification date or current-date fallback is used.
+
+Page navigation shares the layout toolbar. Selected-frame controls occupy a separate desktop grid column, so their content does not reduce preview height. At mobile widths the Edit tab shows the same controls in a bounded, scrollable overlay. Print layout hides the inspector and retains every A4 page; print-preview navigation remains available in the combined toolbar.
+
+## Desktop packaging
+
+Electron serves bundled Angular files through a standard, secure `collage://app` origin so IndexedDB and local storage persist across launches. Renderer Node integration is disabled, context isolation and sandboxing are enabled, and navigation and additional windows are blocked. A narrow preload bridge exposes only project saving through a native Save dialog; the main process checks the sender and writes only to the user-selected path. Browser saves retain their existing download behavior.
+
+Release commands stage the compiled web app and desktop entry points under `dist/desktop-app`, then package Windows x64 as a portable executable and Linux x64 as an AppImage. Packaging does not publish releases. Windows resource editing and signing are disabled to support Linux cross-builds without Wine; native Windows CI also builds and exercises the packaged app. Desktop smoke tests use an isolated temporary application-data directory, check the renderer has no Node access, save through the native bridge, print two A4 PDF pages, and restart to check persistent photo references and language.

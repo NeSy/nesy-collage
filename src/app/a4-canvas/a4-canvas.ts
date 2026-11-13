@@ -26,8 +26,19 @@ import { LayoutService } from '../layout/layout';
 
 @Component({
   selector: 'app-a4-canvas',
+  host: {
+    '[class.has-tools]': 'active && !workspace.printPreview()',
+    '[class.print-preview]': 'active && workspace.printPreview()',
+  },
   standalone: true,
-  imports: [TranslatePipe, CommonModule, SplitContainer, PhotoZone, PolaroidSubtitle, PhotoTools],
+  imports: [
+    TranslatePipe,
+    CommonModule,
+    SplitContainer,
+    PhotoZone,
+    PolaroidSubtitle,
+    PhotoTools,
+  ],
   templateUrl: './a4-canvas.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./a4-canvas.scss'],
@@ -61,6 +72,7 @@ export class A4Canvas implements AfterViewInit, OnDestroy {
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
     if (
+      this.node !== this.layout.layout ||
       this.workspace.printPreview() ||
       (this.workspace.narrow() && this.workspace.mobilePanel() === 'photos') ||
       this.layout.clearing ||
@@ -98,7 +110,8 @@ export class A4Canvas implements AfterViewInit, OnDestroy {
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) this.endNudge();
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key))
+      this.endNudge();
   }
 
   @HostListener('window:blur')
@@ -120,6 +133,7 @@ export class A4Canvas implements AfterViewInit, OnDestroy {
 
   get showWelcome(): boolean {
     return (
+      this.active &&
       !this.workspace.printPreview() &&
       !this.assets.gallery().length &&
       !this.layout.missingImages.length &&
@@ -127,6 +141,22 @@ export class A4Canvas implements AfterViewInit, OnDestroy {
       !this.layout.photoZones[0].image &&
       !this.layout.photoZones[0].subtitle
     );
+  }
+
+  get active(): boolean {
+    return this.node === this.layout.layout;
+  }
+  get mode() {
+    return this.node.presentation?.mode ?? 'tree';
+  }
+  get columns(): number {
+    return this.node.presentation?.columns ?? 2;
+  }
+  get zones(): LayoutNode[] {
+    return LayoutService.listLeaves(this.node);
+  }
+  get rows(): number {
+    return Math.max(Math.ceil(this.columns * 1.1), Math.ceil(this.zones.length / this.columns));
   }
 
   @Input({ required: true }) node!: LayoutNode;

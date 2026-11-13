@@ -1,7 +1,7 @@
 import { expect, test, Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-async function addPhoto(page: Page, name = 'landscape.png') {
+async function addPhoto(page: Page, name = 'landscape.png', inputLabel = 'Add photos') {
   const beforeCount = await page.locator('.thumb').count();
   // A real raster image avoids relying on image codecs or network fixtures.
   const png = await page.evaluate(() => {
@@ -15,13 +15,13 @@ async function addPhoto(page: Page, name = 'landscape.png') {
     context.fillRect(600, 0, 600, 800);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await page.getByLabel('Add photos').setInputFiles({
+  await page.getByLabel(inputLabel).setInputFiles({
     name,
     mimeType: 'image/png',
     buffer: Buffer.from(png, 'base64'),
   });
   await expect(page.locator('.thumb')).toHaveCount(beforeCount + 1);
-  await expect(page.getByLabel('Add photos')).toBeEnabled();
+  await expect(page.getByLabel(inputLabel)).toBeEnabled();
 }
 
 function layoutChoice(page: Page, mode: string) {
@@ -1196,3 +1196,235 @@ for (const axis of ['horizontal', 'vertical']) {
     await expect(image).toHaveAttribute('style', before!);
   });
 }
+
+test('edits, restores and prints multiple A4 pages with independent layouts', async ({
+  page,
+}) => {
+  await addPhoto(page, '2026-12-25.png');
+  await page.getByRole('button', { name: /Place 2026/ }).click();
+  await layoutChoice(page, 'polaroid').click();
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('December 2026');
+  await page.getByRole('button', { name: 'Add page', exact: true }).click();
+  await expect(page.getByLabel('Current page', { exact: true })).toHaveValue('1');
+  await layoutChoice(page, 'tree').click();
+  await page.getByRole('button', { name: /Place 2026/ }).click();
+  await page.getByRole('button', { name: 'Split vertically', exact: true }).click();
+  await expect(page.locator('app-a4-canvas:not(.inactive) .photo-zone')).toHaveCount(2);
+  await expect(page.getByLabel('Used 2 times', { exact: true })).toBeVisible();
+  const project = await exportLayout(page);
+  expect(project.pages).toHaveLength(2);
+  expect(project.pages[0].subtitle).toBe('December 2026');
+  expect(project.pages[1].direction).toBe('vertical');
+  await page.reload();
+  await expect(page.getByLabel('Current page', { exact: true })).toHaveValue('1');
+  await expect(page.locator('.thumb')).toHaveCount(1);
+  await expect(page.locator('app-a4-canvas:not(.inactive) .photo-zone')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Previous page', exact: true }).click();
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('December 2026');
+  await page.getByRole('button', { name: 'Print preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Next page', exact: true }).click();
+  await expect(page.locator('app-a4-canvas:not(.inactive) .page')).not.toHaveClass(
+    /polaroid-page/,
+  );
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.page').nth(0)).toBeVisible();
+  await expect(page.locator('.page').nth(1)).toBeVisible();
+  const pdf = await page.pdf({
+    preferCSSPageSize: true,
+    printBackground: true,
+  });
+  expect(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)).toHaveLength(2);
+  await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('button', { name: 'Back to editing', exact: true }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Remove page', exact: true }).click();
+  await expect(page.getByLabel('Current page', { exact: true }).locator('option')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByLabel('Current page', { exact: true }).locator('option')).toHaveCount(2);
+  await expect(page.getByLabel('Current page', { exact: true })).toHaveValue('1');
+});
+
+test('uses capture metadata before filenames and translates automatic captions across pages', async ({
+  page,
+}) => {
+  const jpeg = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 80;
+    canvas.getContext('2d')!.fillRect(0, 0, 120, 80);
+    return canvas.toDataURL('image/jpeg').split(',')[1];
+  });
+  const tiff = Buffer.alloc(64);
+  tiff.set([0x49, 0x49, 42, 0, 8, 0, 0, 0]);
+  tiff.writeUInt16LE(1, 8);
+  tiff.writeUInt16LE(0x8769, 10);
+  tiff.writeUInt16LE(4, 12);
+  tiff.writeUInt32LE(1, 14);
+  tiff.writeUInt32LE(26, 18);
+  tiff.writeUInt16LE(1, 26);
+  tiff.writeUInt16LE(0x9003, 28);
+  tiff.writeUInt16LE(2, 30);
+  tiff.writeUInt32LE(20, 32);
+  tiff.writeUInt32LE(44, 36);
+  tiff.write('2026:12:25 12:30:00\0', 44, 'ascii');
+  const original = Buffer.from(jpeg, 'base64');
+  await page.getByLabel('Add photos').setInputFiles({
+    name: '2025-07-01.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.concat([
+      original.subarray(0, 2),
+      Buffer.from([0xff, 0xe1, 0, 72, 69, 120, 105, 102, 0, 0]),
+      tiff,
+      original.subarray(2),
+    ]),
+  });
+  await expect(page.locator('.thumb')).toHaveCount(1);
+  await page.getByRole('button', { name: /Place 2025/ }).click();
+  await layoutChoice(page, 'polaroid').click();
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('December 2026');
+  await page.getByRole('button', { name: 'Add page', exact: true }).click();
+  await page.getByRole('button', { name: /Place 2025/ }).click();
+  await page.getByLabel('Subtitle', { exact: true }).fill('Christmas');
+  await page.getByLabel('Language', { exact: true }).selectOption('fr');
+  await expect(page.getByLabel('Légende', { exact: true })).toHaveValue('Christmas');
+  await page.getByRole('button', { name: 'Page précédente', exact: true }).click();
+  await expect(page.getByLabel('Légende', { exact: true })).toHaveValue('Décembre 2026');
+  await page.reload();
+  await expect(page.getByLabel('Légende', { exact: true })).toHaveValue('Décembre 2026');
+  await page.getByLabel('Langue', { exact: true }).selectOption('en');
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('December 2026');
+  await page.getByRole('button', { name: 'Clear subtitle', exact: true }).click();
+  await page.reload();
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('');
+});
+
+
+test('combines page and layout controls and puts frame tools beside the full-height preview', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await addPhoto(page, '2026-12-25.png');
+  await page.getByRole('button', { name: /Place 2026/ }).click();
+  await layoutChoice(page, 'polaroid').click();
+  const pages = page.getByRole('navigation', { name: 'Pages', exact: true });
+  await expect(pages.getByRole('button', { name: 'Remove page', exact: true })).toHaveCount(0);
+  const currentPage = page.getByRole('group', { name: 'Current page · 1', exact: true });
+  await expect(currentPage.getByRole('button', { name: 'Remove page', exact: true })).toBeDisabled();
+  await pages.getByRole('button', { name: 'Add page', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Current page · 2', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(currentPage).toBeVisible();
+  const tools = page.getByRole('region', { name: 'Selection tools', exact: true });
+  const viewport = page.locator('app-a4-canvas:not(.inactive) .preview-viewport');
+  const pageControls = (await page
+    .getByRole('navigation', { name: 'Pages', exact: true })
+    .boundingBox())!;
+  const layoutControls = (await page
+    .getByRole('group', { name: 'Layout', exact: true })
+    .boundingBox())!;
+  expect(
+    Math.abs(
+      pageControls.y + pageControls.height / 2 - (layoutControls.y + layoutControls.height / 2),
+    ),
+  ).toBeLessThan(3);
+  const toolBox = (await tools.boundingBox())!;
+  const viewportBox = (await viewport.boundingBox())!;
+  expect(toolBox.x).toBeGreaterThanOrEqual(viewportBox.x + viewportBox.width);
+  const sheet = (await page.locator('app-a4-canvas:not(.inactive) .page').boundingBox())!;
+  expect(toolBox.x).toBeGreaterThanOrEqual(sheet.x + sheet.width);
+  const canvas = (await page.locator('app-a4-canvas:not(.inactive)').boundingBox())!;
+  expect(viewportBox.height).toBeCloseTo(canvas.height, 0);
+  await expect(page.getByLabel('Subtitle', { exact: true })).toHaveValue('December 2026');
+  await page.screenshot({ path: testInfo.outputPath('compact-desktop.png') });
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.getByRole('tab', { name: 'Edit', exact: true }).click();
+  await expect(page.getByLabel('Subtitle', { exact: true })).toBeVisible();
+  const mobileViewport = (await viewport.boundingBox())!;
+  const mobileCanvas = (await page.locator('app-a4-canvas:not(.inactive)').boundingBox())!;
+  expect(mobileViewport.height).toBeCloseTo(mobileCanvas.height, 0);
+  const mobileTools = (await tools.boundingBox())!;
+  expect(mobileTools.x).toBeGreaterThanOrEqual(mobileCanvas.x);
+  expect(mobileTools.x + mobileTools.width).toBeLessThanOrEqual(
+    mobileCanvas.x + mobileCanvas.width,
+  );
+  expect(mobileTools.y + mobileTools.height).toBeLessThanOrEqual(
+    mobileCanvas.y + mobileCanvas.height,
+  );
+  await page.screenshot({ path: testInfo.outputPath('compact-mobile.png') });
+});
+
+
+test('supports German browser defaults, captions, page controls and persisted language on mobile', async ({
+  browser,
+  page,
+}, testInfo) => {
+  const context = await browser.newContext({ locale: 'de-DE' });
+  const germanPage = await context.newPage();
+  try {
+    await germanPage.goto(page.url());
+    await expect(germanPage.locator('html')).toHaveAttribute('lang', 'de');
+    await expect(germanPage.getByLabel('Sprache', { exact: true })).toHaveValue('de');
+    await expect(
+      germanPage.getByRole('button', { name: 'A4 drucken', exact: true }),
+    ).toBeVisible();
+    await expect(
+      germanPage.getByRole('button', { name: 'Fotos auswählen', exact: true }),
+    ).toBeVisible();
+    await addPhoto(germanPage, 'Urlaub Dezember 2026.png', 'Fotos hinzufügen');
+    await germanPage
+      .getByRole('button', {
+        name: 'Urlaub Dezember 2026.png im ausgewählten Rahmen platzieren',
+        exact: true,
+      })
+      .click();
+    await germanPage
+      .getByRole('group', { name: 'Layout', exact: true })
+      .getByRole('button', { name: 'Polaroid-Raster', exact: true })
+      .click();
+    await expect(germanPage.getByLabel('Bildunterschrift', { exact: true })).toHaveValue(
+      'Dezember 2026',
+    );
+    await germanPage.getByLabel('Sprache', { exact: true }).selectOption('en');
+    await expect(germanPage.getByLabel('Subtitle', { exact: true })).toHaveValue(
+      'December 2026',
+    );
+    await germanPage.getByLabel('Language', { exact: true }).selectOption('de');
+    await germanPage.getByRole('button', { name: 'Seite hinzufügen', exact: true }).click();
+    await expect(
+      germanPage.getByRole('group', { name: 'Aktuelle Seite · 2', exact: true }),
+    ).toBeVisible();
+    await germanPage.getByRole('button', { name: 'Vorherige Seite', exact: true }).click();
+    await germanPage.getByLabel('Bildunterschrift', { exact: true }).fill('Weihnachten');
+    await germanPage.getByRole('button', { name: 'Fertig', exact: true }).click();
+    await germanPage.reload();
+    await expect(germanPage.getByLabel('Sprache', { exact: true })).toHaveValue('de');
+    await expect(germanPage.getByLabel('Bildunterschrift', { exact: true })).toHaveValue(
+      'Weihnachten',
+    );
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 375, height: 667 },
+    ]) {
+      await germanPage.setViewportSize(size);
+      if (size.width <= 700)
+        await germanPage.getByRole('tab', { name: 'Bearbeiten', exact: true }).click();
+      await expect(germanPage.getByLabel('Bildunterschrift', { exact: true })).toBeVisible();
+      await expect
+        .poll(() =>
+          germanPage.evaluate(
+            () =>
+              document.documentElement.scrollWidth <= innerWidth &&
+              document.documentElement.scrollHeight <= innerHeight,
+          ),
+        )
+        .toBe(true);
+      await germanPage.screenshot({ path: testInfo.outputPath(`german-${size.width}.png`) });
+    }
+    await germanPage.getByRole('button', { name: 'Projekt', exact: true }).click();
+    await expect(
+      germanPage.getByRole('button', { name: 'Projektdatei speichern', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

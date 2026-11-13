@@ -1,0 +1,47 @@
+name: Desktop releases
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            command: release:win
+            artifact: windows
+            executable: release/win-unpacked/nesy-collage.exe
+          - os: ubuntu-latest
+            command: release:linux
+            artifact: linux
+            executable: release/linux-unpacked/nesy-collage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test --watch=false
+      - run: pnpm ${{ matrix.command }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Test packaged Windows app
+        if: runner.os == 'Windows'
+        run: pnpm test:desktop ${{ matrix.executable }}
+      - name: Test packaged Linux app
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum pnpm test:desktop ${{ matrix.executable }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nesy-collage-${{ matrix.artifact }}
+          path: |
+            release/*.exe
+            release/*.AppImage
+          if-no-files-found: error

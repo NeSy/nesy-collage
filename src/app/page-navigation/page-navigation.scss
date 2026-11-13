@@ -1,0 +1,27 @@
+.page-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+.page-navigation button,
+.page-navigation select {
+  min-height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: white;
+  color: #334155;
+  padding: 3px 8px;
+}
+.page-navigation button:disabled {
+  opacity: 0.45;
+}
+.page-navigation button:not(:disabled) {
+  cursor: pointer;
+}
+.pages-label {
+  color: #334155;
+  font-weight: 600;
+  margin-right: 4px;
+}

@@ -130,7 +130,7 @@ export class ImageLibrary implements OnDestroy {
         if (this.destroyed || version !== this.assets.version) break;
         await this.assets.add(file, thumbnail);
         if (version !== this.assets.version) break;
-        this.layout.update();
+        this.layout.refreshDateSubtitles();
       } catch (error) {
         if (version !== this.assets.version) break;
         this.error = `Could not import ${file.name}. ${error instanceof Error ? error.message : 'Try a supported image such as JPEG, PNG or WebP.'}`;

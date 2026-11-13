@@ -10,12 +10,22 @@
     [attr.aria-labelledby]="workspace.narrow() ? 'workspace-tab-photos' : null"
     [dropZonesIds]="layout.allDropZoneIds"
   ></app-image-library>
-  <app-a4-canvas
+  <div
     id="canvas-panel"
+    class="canvas-stack"
     [attr.role]="workspace.narrow() ? 'tabpanel' : null"
-    [attr.aria-labelledby]="workspace.narrow() ? 'workspace-tab-' + workspace.mobilePanel() : null"
-    [node]="layout.layout"
-  ></app-a4-canvas>
+    [attr.aria-labelledby]="
+      workspace.narrow() ? 'workspace-tab-' + workspace.mobilePanel() : null
+    "
+  >
+    @for (page of layout.pages; track page.id) {
+      <app-a4-canvas
+        [node]="page"
+        [class.inactive]="page !== layout.layout"
+        [attr.aria-hidden]="page !== layout.layout ? 'true' : null"
+      ></app-a4-canvas>
+    }
+  </div>
 </div>
 <nav
   class="mobile-tabs"
@@ -33,7 +43,7 @@
     (click)="workspace.showPanel('photos')"
     (keydown)="selectTab($event, 0)"
   >
-    {{ 'Photos' | t }}
+    {{ "Photos" | t }}
   </button>
   <button
     id="workspace-tab-canvas"
@@ -45,7 +55,7 @@
     (click)="workspace.showPanel('canvas')"
     (keydown)="selectTab($event, 1)"
   >
-    {{ 'Canvas' | t }}
+    {{ "Canvas" | t }}
   </button>
   <button
     id="workspace-tab-edit"
@@ -57,6 +67,6 @@
     (click)="workspace.showPanel('edit')"
     (keydown)="selectTab($event, 2)"
   >
-    {{ 'Edit' | t }}
+    {{ "Edit" | t }}
   </button>
 </nav>

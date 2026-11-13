@@ -1,0 +1,27 @@
+appId: fr.nesy.collage
+productName: nesy-collage
+directories:
+  app: dist/desktop-app
+  output: release
+files:
+  - main.cjs
+  - preload.cjs
+  - web/**/*
+  - package.json
+  - '!node_modules/**/*'
+asar: true
+npmRebuild: false
+publish: null
+win:
+  target:
+    - target: portable
+      arch: [x64]
+  signAndEditExecutable: false
+  artifactName: nesy-collage-${version}-windows-${arch}.exe
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Graphics
+  syncDesktopName: true
+  artifactName: nesy-collage-${version}-linux-${arch}.AppImage

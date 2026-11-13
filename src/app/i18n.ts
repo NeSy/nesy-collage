@@ -1,7 +1,24 @@
 import { Injectable, Pipe, PipeTransform, signal } from '@angular/core';
+import { Subject } from 'rxjs';
+import { GERMAN } from './i18n.de';
 
-export type Language = 'en' | 'fr';
+export type Language = 'en' | 'fr' | 'de';
 const FRENCH: Record<string, string> = {
+  Pages: 'Pages',
+  Page: 'Page',
+  'Current page': 'Page actuelle',
+  'Previous page': 'Page précédente',
+  'Next page': 'Page suivante',
+  'Add page': 'Ajouter une page',
+  'Remove page': 'Retirer la page',
+  'Remove this page and its frames?': 'Retirer cette page et ses cadres ?',
+  'Projects must contain between 1 and 100 pages.':
+    'Un projet doit contenir entre 1 et 100 pages.',
+  'Node IDs must be unique across pages.':
+    'Les identifiants doivent être uniques dans toutes les pages.',
+  'Invalid active page.': 'Page actuelle invalide.',
+  'Invalid photo date.': 'Date de photo invalide.',
+  'Invalid automatic subtitle flag.': 'Indicateur de légende automatique invalide.',
   Photos: 'Photos',
   photo: 'photo',
   photos: 'photos',
@@ -190,6 +207,7 @@ const ENGLISH: Record<string, string> = {
 export class I18n {
   static readonly storageKey = 'photo-armaurie:language';
   readonly language = signal<Language>(this.initialLanguage());
+  readonly languageChanged = new Subject<Language>();
 
   constructor() {
     document.documentElement.lang = this.language();
@@ -198,17 +216,19 @@ export class I18n {
   private initialLanguage(): Language {
     try {
       const stored = localStorage.getItem(I18n.storageKey);
-      if (stored === 'en' || stored === 'fr') return stored;
+      if (stored === 'en' || stored === 'fr' || stored === 'de') return stored;
     } catch {
       /* Language selection remains available without storage. */
     }
-    return navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+    const browser = navigator.language.toLowerCase().split('-')[0];
+    return browser === 'fr' || browser === 'de' ? browser : 'en';
   }
 
   setLanguage(language: string): void {
-    if (language !== 'en' && language !== 'fr') return;
+    if (language !== 'en' && language !== 'fr' && language !== 'de') return;
     this.language.set(language);
     document.documentElement.lang = language;
+    this.languageChanged.next(language);
     try {
       localStorage.setItem(I18n.storageKey, language);
     } catch {
@@ -218,16 +238,21 @@ export class I18n {
 
   t(key: string | null | undefined, params: Record<string, string | number> = {}): string {
     if (!key) return '';
-    const messages = this.language() === 'fr' ? FRENCH : ENGLISH;
+    const messages =
+      this.language() === 'de' ? GERMAN : this.language() === 'fr' ? FRENCH : ENGLISH;
     const translated = Object.hasOwn(messages, key) ? messages[key] : undefined;
-    if (translated === undefined && this.language() === 'fr') {
+    if (translated === undefined && this.language() !== 'en') {
       const invalidFile = /^(.*) is not an image\.$/.exec(key);
       if (invalidFile) return this.t('Not an image', { name: invalidFile[1] });
       const failedImport = /^Could not import (.*?)\. (.*)$/.exec(key);
       if (failedImport)
         return this.t('Import failed', { name: failedImport[1], detail: this.t(failedImport[2]) });
       const finiteNumber = /^(.*) must be a finite number\.$/.exec(key);
-      if (finiteNumber) return 'La valeur « ' + finiteNumber[1] + ' » doit être un nombre fini.';
+      if (finiteNumber) {
+        if (this.language() === 'de')
+          return this.t('Finite number required', { name: this.t(finiteNumber[1]) });
+        return 'La valeur « ' + finiteNumber[1] + ' » doit être un nombre fini.';
+      }
     }
     return (translated ?? key).replace(/\{(\w+)\}/g, (token, name: string) =>
       String(params[name] ?? token),

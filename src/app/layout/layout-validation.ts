@@ -1,4 +1,5 @@
 import { ImageReference, isImageReference } from '../images/image-reference';
+import { isPhotoMonth } from '../images/photo-date';
 import { ImagePlacement, LayoutNode } from './layout.model';
 
 // Build a clean tree from known fields; never render untrusted object shapes.
@@ -63,13 +64,21 @@ export function parseLayout(value: unknown): LayoutNode {
     ) {
       return fail('Frame subtitles must be a single line of at most 80 characters.');
     }
-    const caption = typeof subtitle === 'string' ? { subtitle } : {};
+    const subtitleAuto = node['subtitleAuto'];
+    if (subtitleAuto !== undefined && typeof subtitleAuto !== 'boolean')
+      return fail('Invalid automatic subtitle flag.');
+    const caption = {
+      ...(typeof subtitle === 'string' ? { subtitle } : {}),
+      ...(typeof subtitleAuto === 'boolean' ? { subtitleAuto } : {}),
+    };
     if (node['image'] === undefined) return { id, ...caption };
     const image = object(node['image']);
     const src = image['src'];
-    if (typeof src !== 'string') return fail('Images need a valid stored reference or image URL.');
+    if (typeof src !== 'string')
+      return fail('Images need a valid stored reference or image URL.');
     if (src.startsWith('data:')) {
-      if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(src)) return fail('Invalid embedded image.');
+      if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(src))
+        return fail('Invalid embedded image.');
       const base64 = src.slice(src.indexOf(',') + 1);
       if (!base64 || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64))
         return fail('An embedded image has invalid base64 data.');
@@ -104,7 +113,12 @@ export function parseLayout(value: unknown): LayoutNode {
     const mode = settings['mode'];
     const columns = settings['columns'];
     if (mode !== 'tree' && mode !== 'polaroid') return fail('Unknown layout mode.');
-    if (typeof columns !== 'number' || !Number.isInteger(columns) || columns < 1 || columns > 4) {
+    if (
+      typeof columns !== 'number' ||
+      !Number.isInteger(columns) ||
+      columns < 1 ||
+      columns > 4
+    ) {
       return fail('Grid columns must be an integer between 1 and 4.');
     }
     root.presentation = { mode, columns };
@@ -112,15 +126,50 @@ export function parseLayout(value: unknown): LayoutNode {
   return root;
 }
 
-export function parseProject(value: unknown): { root: LayoutNode; gallery: ImageReference[] } {
-  const root = parseLayout(value);
+export function parseProject(value: unknown): {
+  root: LayoutNode;
+  pages: LayoutNode[];
+  activePageIndex: number;
+  gallery: ImageReference[];
+} {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Each layout node must be an object.');
+  const document = value as Record<string, unknown>;
+  const pageValues = document['pages'];
+  if (
+    pageValues !== undefined &&
+    (!Array.isArray(pageValues) || !pageValues.length || pageValues.length > 100)
+  )
+    throw new Error('Projects must contain between 1 and 100 pages.');
+  const pages =
+    pageValues === undefined
+      ? [parseLayout(value)]
+      : (pageValues as unknown[]).map(parseLayout);
+  const ids = new Set<string>();
+  const visit = (node: LayoutNode): void => {
+    if (ids.has(node.id)) throw new Error('Node IDs must be unique across pages.');
+    ids.add(node.id);
+    if (node.first) visit(node.first);
+    if (node.second) visit(node.second);
+  };
+  pages.forEach(visit);
+  const index = document['activePageIndex'] ?? 0;
+  if (
+    typeof index !== 'number' ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= pages.length
+  )
+    throw new Error('Invalid active page.');
+  const root = pages[index];
+  const result = { root, pages, activePageIndex: index };
   const gallery = (value as Record<string, unknown>)['gallery'];
-  if (gallery === undefined) return { root, gallery: [] };
+  if (gallery === undefined) return { ...result, gallery: [] };
   if (!Array.isArray(gallery) || gallery.length > 10000)
     throw new Error('Invalid gallery references.');
   const references = gallery.map((entry: unknown): ImageReference => {
     if (!entry || typeof entry !== 'object') throw new Error('Invalid gallery reference.');
-    const { src, name } = entry as Record<string, unknown>;
+    const { src, name, date } = entry as Record<string, unknown>;
     if (
       typeof src !== 'string' ||
       !isImageReference(src) ||
@@ -128,7 +177,8 @@ export function parseProject(value: unknown): { root: LayoutNode; gallery: Image
       name.length > 1024
     )
       throw new Error('Invalid gallery reference.');
-    return { src, name };
+    if (date !== undefined && !isPhotoMonth(date)) throw new Error('Invalid photo date.');
+    return { src, name, ...(date ? { date } : {}) };
   });
-  return { root, gallery: references };
+  return { ...result, gallery: references };
 }

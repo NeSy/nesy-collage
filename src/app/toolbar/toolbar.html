@@ -26,6 +26,7 @@
     >
       <option value="en" lang="en">English</option>
       <option value="fr" lang="fr">Français</option>
+      <option value="de" lang="de">Deutsch</option>
     </select>
   </div>
   <div class="project-actions">
@@ -116,80 +117,94 @@
   role="group"
   [attr.aria-label]="'Layout tools' | t"
 >
-  <div class="control-group" role="group" [attr.aria-label]="'Layout' | t">
-    <span class="layout-label">{{ 'Layout' | t }}</span>
-    <div class="layout-toggle">
-      <button
-        type="button"
-        [attr.aria-label]="'Split layout' | t"
-        [attr.aria-pressed]="layout.mode === 'tree'"
-        (click)="layout.setMode('tree')"
-      >
-        {{ 'Split' | t }}
-      </button>
-      <button
-        type="button"
-        [attr.aria-label]="'Polaroid grid' | t"
-        [attr.aria-pressed]="layout.mode === 'polaroid'"
-        (click)="layout.setMode('polaroid')"
-      >
-        {{ 'Polaroid' | t }}
-      </button>
+  <app-page-navigation></app-page-navigation>
+  <div class="page-layout-controls" role="group" aria-labelledby="current-page-heading">
+    <span id="current-page-heading" class="current-page-heading"
+      >{{ 'Current page' | t }} · {{ layout.activePageIndex + 1 }}</span
+    >
+    <div class="control-group" role="group" [attr.aria-label]="'Layout' | t">
+      <span class="layout-label">{{ 'Layout' | t }}</span>
+      <div class="layout-toggle">
+        <button
+          type="button"
+          [attr.aria-label]="'Split layout' | t"
+          [attr.aria-pressed]="layout.mode === 'tree'"
+          (click)="layout.setMode('tree')"
+        >
+          {{ 'Split' | t }}
+        </button>
+        <button
+          type="button"
+          [attr.aria-label]="'Polaroid grid' | t"
+          [attr.aria-pressed]="layout.mode === 'polaroid'"
+          (click)="layout.setMode('polaroid')"
+        >
+          {{ 'Polaroid' | t }}
+        </button>
+      </div>
     </div>
+    @if (layout.mode === 'polaroid') {
+      <div class="control-group">
+        <label for="grid-columns">{{ 'Columns' | t }}</label>
+        <select
+          id="grid-columns"
+          [value]="layout.gridColumns"
+          (change)="layout.setGridColumns($any($event.target).value)"
+        >
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <button type="button" (click)="layout.addFrame()">{{ 'Add frame' | t }}</button>
+        <button
+          type="button"
+          (click)="layout.removeFrame()"
+          [disabled]="layout.photoZones.length <= 1 || layout.selection?.type !== 'node'"
+        >
+          {{ 'Remove frame' | t }}
+        </button>
+      </div>
+    } @else {
+      <div class="control-group">
+        <button
+          type="button"
+          [attr.aria-label]="'Split vertically' | t"
+          [attr.title]="'Split the selected frame into left and right panes' | t"
+          (click)="splitVertical()"
+          [disabled]="layout.selection?.type !== 'node'"
+        >
+          {{ 'Split left/right' | t }}
+        </button>
+        <button
+          type="button"
+          [attr.aria-label]="'Split horizontally' | t"
+          [attr.title]="'Split the selected frame into top and bottom panes' | t"
+          (click)="splitHorizontal()"
+          [disabled]="layout.selection?.type !== 'node'"
+        >
+          {{ 'Split top/bottom' | t }}
+        </button>
+        <button
+          type="button"
+          (click)="layout.removeSelectedSeparator()"
+          [disabled]="layout.selection?.type !== 'separator'"
+        >
+          {{ 'Remove separator' | t }}
+        </button>
+      </div>
+    }
+    <button
+      type="button"
+      class="remove-page"
+      (click)="removePage()"
+      [disabled]="layout.pages.length <= 1"
+    >
+      {{ 'Remove page' | t }}
+    </button>
   </div>
-  @if (layout.mode === 'polaroid') {
-    <div class="control-group">
-      <label for="grid-columns">{{ 'Columns' | t }}</label>
-      <select
-        id="grid-columns"
-        [value]="layout.gridColumns"
-        (change)="layout.setGridColumns($any($event.target).value)"
-      >
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <button type="button" (click)="layout.addFrame()">{{ 'Add frame' | t }}</button>
-      <button
-        type="button"
-        (click)="layout.removeFrame()"
-        [disabled]="layout.photoZones.length <= 1 || layout.selection?.type !== 'node'"
-      >
-        {{ 'Remove frame' | t }}
-      </button>
-    </div>
-  } @else {
-    <div class="control-group">
-      <button
-        type="button"
-        [attr.aria-label]="'Split vertically' | t"
-        [attr.title]="'Split the selected frame into left and right panes' | t"
-        (click)="splitVertical()"
-        [disabled]="layout.selection?.type !== 'node'"
-      >
-        {{ 'Split left/right' | t }}
-      </button>
-      <button
-        type="button"
-        [attr.aria-label]="'Split horizontally' | t"
-        [attr.title]="'Split the selected frame into top and bottom panes' | t"
-        (click)="splitHorizontal()"
-        [disabled]="layout.selection?.type !== 'node'"
-      >
-        {{ 'Split top/bottom' | t }}
-      </button>
-      <button
-        type="button"
-        (click)="layout.removeSelectedSeparator()"
-        [disabled]="layout.selection?.type !== 'separator'"
-      >
-        {{ 'Remove separator' | t }}
-      </button>
-    </div>
-  }
 </div>
 @if (layout.error) {
   <p class="notice error" role="alert">{{ layout.error | t }}</p>

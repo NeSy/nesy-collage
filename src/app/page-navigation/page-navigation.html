@@ -1,0 +1,38 @@
+<nav class="page-navigation" [attr.aria-label]="'Pages' | t">
+  <label for="current-page" class="pages-label">{{ 'Pages' | t }}</label>
+  <button
+    type="button"
+    [attr.aria-label]="'Previous page' | t"
+    (click)="layout.selectPage(layout.activePageIndex - 1)"
+    [disabled]="layout.activePageIndex === 0"
+  >
+    ‹
+  </button>
+  <select
+    id="current-page"
+    [attr.aria-label]="'Current page' | t"
+    [value]="layout.activePageIndex"
+    (change)="layout.selectPage(+$any($event.target).value)"
+  >
+    @for (page of layout.pages; track page.id) {
+      <option [value]="$index" [selected]="$index === layout.activePageIndex">
+        {{ $index + 1 }} / {{ layout.pages.length }}
+      </option>
+    }
+  </select>
+  <button
+    type="button"
+    [attr.aria-label]="'Next page' | t"
+    (click)="layout.selectPage(layout.activePageIndex + 1)"
+    [disabled]="layout.activePageIndex === layout.pages.length - 1"
+  >
+    ›
+  </button>
+  <button
+    type="button"
+    (click)="addPage()"
+    [disabled]="workspace.printPreview() || layout.pages.length >= 100"
+  >
+    {{ 'Add page' | t }}
+  </button>
+</nav>
