@@ -16,7 +16,8 @@
     "build:pwa": "ng build --output-path dist/pwa",
     "release:pwa": "node scripts/release-pwa.mjs",
     "preview:pwa": "node scripts/serve-pwa.mjs",
-    "test:pwa": "node scripts/release-pwa.mjs && playwright test --config playwright.pwa.config.ts"
+    "test:pwa": "node scripts/release-pwa.mjs && playwright test --config playwright.pwa.config.ts",
+    "icons:pwa": "node scripts/generate-pwa-icons.mjs"
   },
   "private": true,
   "dependencies": {
