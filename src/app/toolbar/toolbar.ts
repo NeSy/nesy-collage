@@ -1,3 +1,4 @@
+import { Pwa } from '../pwa';
 import { PageNavigation } from '../page-navigation/page-navigation';
 import { I18n, TranslatePipe } from '../i18n';
 import {
@@ -42,6 +43,7 @@ export class Toolbar {
     public layout: LayoutService,
     public workspace: Workspace,
     public i18n: I18n,
+    public pwa: Pwa,
   ) {}
 
   splitHorizontal(): void {

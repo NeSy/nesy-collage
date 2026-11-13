@@ -74,6 +74,8 @@ export const GERMAN: Record<string, string> = {
   'Clear this project? This deletes the collage, gallery, stored photos and undo history. Saved project files will need their originals re-added.':
     'Dieses Projekt leeren? Die Collage, Galerie, gespeicherten Fotos und der Bearbeitungsverlauf werden gelöscht. Zum Öffnen gespeicherter Projektdateien müssen die Originale erneut hinzugefügt werden.',
   'Enter filename': 'Dateinamen eingeben',
+  'Install app': 'App installieren',
+  'Update app': 'App aktualisieren',
   'Back to editing': 'Zurück zur Bearbeitung',
   'Print preview': 'Druckvorschau',
   Edit: 'Bearbeiten',

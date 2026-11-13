@@ -1,0 +1,26 @@
+name: PWA release
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test --watch=false
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:pwa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nesy-collage-pwa
+          path: release/*-pwa.zip
+          if-no-files-found: error

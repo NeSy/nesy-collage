@@ -29,13 +29,13 @@ Choose **English**, **Français**, or **Deutsch** in the top bar. The app uses t
 
 Use the **Page** selector or previous/next buttons to switch A4 pages. **Add page** creates a blank page using the current layout mode and column count; **Remove page** removes the current page after confirmation. Each page has independent frames, crops, and layout settings, and all pages share the photo gallery. Page creation and removal support undo/redo. Projects support up to 100 pages, and printing includes every page in order.
 
-In Polaroid mode, photos with a recognizable date start with a **Month YYYY** subtitle, such as **December 2026** **Décembre 2026**, or **Dezember 2026**. Capture metadata takes priority, followed by a date in the photo’s metadata title or filename (for example `IMG_20261225_123456.jpg`, `2026-12-25.jpg`, or `December 2026.jpg`). Photos without a date keep a blank subtitle. Automatic subtitles follow the selected language; typing or clearing a subtitle preserves your choice. Dates remain in saved project references when originals are unavailable.
+In Polaroid mode, photos with a recognizable date start with a **Month YYYY** subtitle, such as **December 2026**, **Décembre 2026**, or **Dezember 2026**. Capture metadata takes priority, followed by a date in the photo’s metadata title or filename (for example `IMG_20261225_123456.jpg`, `2026-12-25.jpg`, or `December 2026.jpg`). Photos without a date keep a blank subtitle. Automatic subtitles follow the selected language; typing or clearing a subtitle preserves your choice. Dates remain in saved project references when originals are unavailable.
 
 ## Save and print
 
 The last project is automatically saved to **local storage** after a short pause in editing and before the page is hidden or reloaded. Reopening the app restores its layout, photo crops, captions, and gallery. Undo history starts fresh after reopening.
 
-**Project → Save project file** downloads a small JSON project containing image references and filenames, not picture bytes. Imported originals and their thumbnails are stored once in **IndexedDB**; display blob URLs are recreated each session and never saved in JSON. HTTP(S) URLs and relative image URLs are also accepted in project files. Browser file inputs do not expose reusable absolute disk paths.
+**Project → Save project file** opens a Save As file chooser in supporting browsers over HTTPS or localhost. The desktop app uses its native Save dialog. Other browsers download `collage-layout.json` directly, with no filename alert; browser download settings determine whether a destination chooser appears. Canceling Save As leaves the project intact and does not start a download. The small JSON project contains image references and filenames, not picture bytes. Imported originals and their thumbnails are stored once in **IndexedDB**; display blob URLs are recreated each session and never saved in JSON. HTTP(S) URLs and relative image URLs are also accepted in project files. Browser file inputs do not expose reusable absolute disk paths.
 
 **Project → Open project** validates a project before replacing the collage. Older JSON files with embedded images are still supported and converted to stored references on import. On another browser, another site origin, or after clearing stored photos, use **Add photos** to reconnect originals by matching filenames, or drag replacement photos into the affected zones. Reconnecting a unique matching filename preserves its crop. Keep the original files alongside exported reference-only projects; JSON alone no longer includes them. Invalid files show an error and leave the document and history unchanged.
 
@@ -84,3 +84,21 @@ For Linux, make the AppImage executable with `chmod +x release/*.AppImage`, then
 The desktop app uses a native Save dialog and keeps its gallery, project, and language in its own application-data directory. Browser projects can be transferred using **Save project file**, **Open project**, and the original photos. Keeping a portable executable does not embed your photo library in that executable.
 
 `pnpm test:desktop` checks the unpacked app after a release build: importing photos, automatic captions, native project saving, two-page PDF output, and persistence after restarting. Linux CI uses `xvfb-run --auto-servernum pnpm test:desktop` for a virtual display. The **Desktop releases** GitHub Actions workflow builds and tests Windows and Linux on their native runners and uploads the executable artifacts. Run it manually, or trigger it with a `v*` tag; it does not publish a GitHub Release automatically.
+
+## Installable web app (PWA)
+
+```bash
+pnpm release:pwa                 # Build a ZIP for hosting at a website root
+pnpm release:pwa /nesy-collage/   # Build for a subdirectory, such as GitHub Pages
+pnpm build:pwa                   # Build just the static website
+pnpm preview:pwa                 # Preview the built PWA at http://127.0.0.1:4202
+pnpm test:pwa                    # Build and test offline behavior and browser Save As
+```
+
+`release/nesy-collage-0.1.0-pwa.zip` contains the complete static site. Extract its contents onto an **HTTPS** host at the path selected when building. Localhost also supports installation for testing; opening `index.html` directly from disk does not. Keep the hosting URL stable to keep using the same browser-stored photos and projects. This command prepares release files; it does not publish a website.
+
+In a supporting browser, use its **Install** option or **Project → Install app** when offered. The app opens in its own window. After its initial online load and offline-cache preparation, the interface, imported photos, and saved pages work offline. Externally linked photos still require their source URLs. Projects and originals stay in the browser's local storage and IndexedDB; they are not uploaded. Keep project exports and original files for transfer to other devices or recovery after clearing browser data.
+
+When a new version is cached, **Project → Update app** becomes available. Updating saves pending project changes before reloading; a failed autosave leaves the current app open. No automatic reload interrupts editing. The desktop releases do not register this web service worker.
+
+The **PWA release** GitHub Actions workflow builds and tests the production PWA and uploads the ZIP on manual runs or `v*` tags. PWA tests check installation metadata, offline reloads with real imported originals and multiple pages, PDF output, browser Save As, cancellation, fallback downloads, and the install action.

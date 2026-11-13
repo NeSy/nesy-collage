@@ -49,7 +49,8 @@ async function load(page: Page, value: unknown) {
 }
 
 async function exportLayout(page: Page) {
-  page.once('dialog', (dialog) => dialog.accept('test-collage.json'));
+  // Exercise the download fallback here; picker behavior has dedicated coverage.
+  await page.evaluate(() => Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true }));
   const download = page.waitForEvent('download');
   await projectAction(page, 'Save project file');
   const path = await (await download).path();

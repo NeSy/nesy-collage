@@ -68,6 +68,12 @@
           role="group"
           [attr.aria-label]="'Project actions' | t"
         >
+          @if (pwa.canInstall()) {
+            <button type="button" (click)="projectOpen.set(false); pwa.install()">{{ 'Install app' | t }}</button>
+          }
+          @if (pwa.updateReady()) {
+            <button type="button" (click)="projectOpen.set(false); pwa.update()">{{ 'Update app' | t }}</button>
+          }
           <button type="button" (click)="save()" [disabled]="layout.saving">
             {{ (layout.saving ? 'Saving project file…' : 'Save project file') | t }}
           </button>

@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "nesy-collage",
+  "short_name": "nesy-collage",
+  "description": "Arrange photos across printable A4 collage pages.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e8ebef",
+  "theme_color": "#2563eb",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

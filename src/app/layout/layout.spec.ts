@@ -141,6 +141,37 @@ describe('LayoutService', () => {
     } finally { delete window.desktop; }
   });
 
+  it('uses a secure browser picker and writes the current project atomically', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined), abort: vi.fn().mockResolvedValue(undefined) };
+    const picker = vi.fn().mockResolvedValue({ createWritable: async () => writable });
+    vi.stubGlobal('showSaveFilePicker', picker);
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    service.assignImage(service.layout, 'photo.jpg');
+    await service.save();
+    expect(picker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'collage-layout.json' }));
+    expect(JSON.parse(writable.write.mock.calls[0][0]).image.src).toBe('photo.jpg');
+    expect(writable.close).toHaveBeenCalledOnce();
+    expect(download).not.toHaveBeenCalled();
+    writable.write.mockRejectedValueOnce(new Error('Disk full'));
+    await service.save();
+    expect(writable.abort).toHaveBeenCalledOnce();
+    expect(service.error).toBe('Disk full');
+    expect(service.saving).toBe(false);
+  });
+
+  it('treats a canceled Save As dialog as a no-op without a fallback download', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    vi.stubGlobal('showSaveFilePicker', vi.fn().mockRejectedValue(new DOMException('Canceled', 'AbortError')));
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const before = service.serializeProject();
+    await service.save();
+    expect(service.error).toBe('');
+    expect(service.saving).toBe(false);
+    expect(service.serializeProject()).toBe(before);
+    expect(download).not.toHaveBeenCalled();
+  });
+
   it('coalesces geometry notifications without copying the tree or drop targets', () => {
     const listener = vi.fn();
     service.layout$.subscribe(listener);

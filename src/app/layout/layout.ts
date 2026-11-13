@@ -432,29 +432,43 @@ export class LayoutService implements OnDestroy {
 
   async save(): Promise<void> {
     if (this.saving) return;
-    const desktop = window.desktop;
-    const filename = desktop ? null : window.prompt(this.i18n.t('Enter filename'), 'collage-layout.json');
-    if (!desktop && !filename) return;
     this.error = '';
     this.saving = true;
     try {
+      const desktop = window.desktop;
+      // Open the picker during the click's user activation, before any asynchronous work.
+      const picker = !desktop && window.isSecureContext && window.showSaveFilePicker
+        ? window.showSaveFilePicker({
+            suggestedName: 'collage-layout.json',
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+          })
+        : undefined;
+      const handle = picker ? await picker : undefined;
       const project = this.serializeProject();
       if (desktop) {
         await desktop.saveProject(project);
-        return;
+      } else if (handle) {
+        const writable = await handle.createWritable();
+        try {
+          await writable.write(project);
+          await writable.close();
+        } catch (error) {
+          await writable.abort().catch(() => {});
+          throw error;
+        }
+      } else {
+        const blob = new Blob([project], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'collage-layout.json';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      const blob = new Blob([project], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename!.endsWith('.json') ? filename! : `${filename}.json`;
-      a.click();
-      // Allow the browser to start the download before releasing the URL.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
-      this.error = error instanceof Error ? error.message : 'Could not save the layout.';
+      // Canceling Save As is a normal action; do not start a fallback download.
+      if (!(error instanceof DOMException && error.name === 'AbortError'))
+        this.error = error instanceof Error ? error.message : 'Could not save the layout.';
     } finally {
       this.saving = false;
       this.update();

@@ -76,6 +76,8 @@ const FRENCH: Record<string, string> = {
   'Clear this project? This deletes the collage, gallery, stored photos and undo history. Saved project files will need their originals re-added.':
     'Effacer ce projet ? Le collage, la galerie, les photos enregistrées et l’historique seront supprimés. Il faudra réimporter les originaux pour ouvrir les fichiers de projet sauvegardés.',
   'Enter filename': 'Nom du fichier',
+  'Install app': 'Installer l’application',
+  'Update app': 'Mettre à jour l’application',
   'Back to editing': 'Revenir à l’édition',
   'Print preview': 'Aperçu avant impression',
   Edit: 'Modifier',
