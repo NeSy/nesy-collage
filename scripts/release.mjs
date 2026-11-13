@@ -28,6 +28,10 @@ await mkdir(staging, { recursive: true });
 await cp(path.join(root, 'dist/nesy-collage/browser'), path.join(staging, 'web'), {
   recursive: true,
 });
+await cp(
+  path.join(root, 'dist/nesy-collage/3rdpartylicenses.txt'),
+  path.join(staging, 'web/3rdpartylicenses.txt'),
+);
 for (const file of ['main.cjs', 'preload.cjs']) {
   await cp(path.join(root, 'desktop', file), path.join(staging, file));
 }
