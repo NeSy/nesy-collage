@@ -33,6 +33,9 @@ pnpm-debug.log*
 # Coverage reports
 coverage/
 
+# Test results
+test-results/
+
 # Temporary files
 tmp/
 temp/
