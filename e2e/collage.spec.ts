@@ -1429,3 +1429,116 @@ test('supports German browser defaults, captions, page controls and persisted la
     await context.close();
   }
 });
+
+test('pinch touch gestures zoom a photo on a phone and allow continued dragging', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.getByRole('button', { name: 'Use Polaroid grid' }).click();
+  await addPhoto(page);
+  await page.getByRole('button', { name: /Place landscape/ }).click();
+  const image = page.locator('.photo-zone img');
+  await expect(image).toHaveJSProperty('naturalWidth', 1200);
+  const transform = () =>
+    image.evaluate((el) => {
+      const matrix = new DOMMatrix(getComputedStyle(el).transform);
+      return { x: matrix.m41, y: matrix.m42, scale: matrix.a };
+    });
+  const initial = await transform();
+  const box = (await page.locator('.photo-zone').boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const session = await page.context().newCDPSession(page);
+  const touch = (
+    type: 'touchStart' | 'touchMove' | 'touchEnd',
+    points: { id: number; x: number; y: number }[],
+  ) => session.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  await touch('touchStart', [{ id: 1, x: x - 20, y }]);
+  await touch('touchStart', [
+    { id: 1, x: x - 20, y },
+    { id: 2, x: x + 20, y },
+  ]);
+  await touch('touchMove', [
+    { id: 1, x: x - 40, y },
+    { id: 2, x: x + 40, y },
+  ]);
+  await expect.poll(async () => (await transform()).scale / initial.scale).toBeCloseTo(2, 3);
+  await touch('touchEnd', [{ id: 2, x: x + 40, y }]);
+  const pinched = await transform();
+  await touch('touchMove', [{ id: 1, x: x - 30, y: y + 10 }]);
+  await expect.poll(async () => (await transform()).x).toBeGreaterThan(pinched.x);
+  await touch('touchEnd', []);
+  expect((await transform()).scale).toBeCloseTo(pinched.scale, 3);
+  await session.detach();
+});
+
+for (const mode of ['tree', 'polaroid']) {
+  test(`rotates a ${mode} photo with quarter turns, a precise handle, undo and project saving`, async ({ page }) => {
+    await addPhoto(page);
+    await layoutChoice(page, mode).click();
+    await page.getByRole('button', { name: /Place landscape/ }).click();
+    const image = page.locator('.photo-zone img');
+    await expect(image).toHaveJSProperty('naturalWidth', 1200);
+    const angle = () => image.evaluate(el => {
+      const m = new DOMMatrix(getComputedStyle(el).transform);
+      return Math.atan2(m.b, m.a) * 180 / Math.PI;
+    });
+    await page.getByRole('button', { name: 'Rotate right 90°', exact: true }).click();
+    await expect.poll(angle).toBeCloseTo(90, 2);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(angle).toBeCloseTo(0, 2);
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect.poll(angle).toBeCloseTo(90, 2);
+    await page.getByRole('button', { name: 'Rotate left 90°', exact: true }).click();
+    await expect.poll(angle).toBeCloseTo(0, 2);
+    const handle = page.getByRole('button', { name: 'Rotate photo', exact: true });
+    const frame = (await page.locator('.photo-zone').boundingBox())!;
+    const grip = (await handle.boundingBox())!;
+    const cx = frame.x + frame.width / 2;
+    const cy = frame.y + frame.height / 2;
+    const radius = cy - grip.y - grip.height / 2;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(cx + radius * Math.sin(Math.PI / 6), cy - radius * Math.cos(Math.PI / 6), { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(angle).toBeCloseTo(30, 1);
+    await handle.focus();
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect.poll(angle).toBeCloseTo(30.1, 1);
+    await page.getByRole('spinbutton', { name: 'Rotation angle', exact: true }).fill('12.5');
+    await page.getByRole('spinbutton', { name: 'Rotation angle', exact: true }).press('Tab');
+    await expect.poll(angle).toBeCloseTo(12.5, 2);
+    const saved = await exportLayout(page);
+    await load(page, saved);
+    await expect.poll(angle).toBeCloseTo(12.5, 2);
+    await page.emulateMedia({ media: 'print' });
+    await expect(handle).toBeHidden();
+    await expect.poll(angle).toBeCloseTo(12.5, 2);
+    await page.emulateMedia({ media: 'screen' });
+    await page.getByRole('button', { name: 'Reset crop', exact: true }).click();
+    await expect.poll(angle).toBeCloseTo(0, 2);
+  });
+}
+
+test('twisting two fingers rotates and zooms a photo on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.getByRole('button', { name: 'Use Polaroid grid' }).click();
+  await addPhoto(page);
+  await page.getByRole('button', { name: /Place landscape/ }).click();
+  const image = page.locator('.photo-zone img');
+  await expect(image).toHaveJSProperty('naturalWidth', 1200);
+  const transform = () => image.evaluate(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform);
+    return { scale: Math.hypot(m.a, m.b), angle: Math.atan2(m.b, m.a) * 180 / Math.PI };
+  });
+  const initial = await transform();
+  const box = (await page.locator('.photo-zone').boundingBox())!;
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x: x - 20, y }, { id: 2, x: x + 20, y }] });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x, y: y - 40 }, { id: 2, x, y: y + 40 }] });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(async () => (await transform()).scale / initial.scale).toBeCloseTo(2, 3);
+  await expect.poll(async () => (await transform()).angle).toBeCloseTo(90, 2);
+  await session.detach();
+});

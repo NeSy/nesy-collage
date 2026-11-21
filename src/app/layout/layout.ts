@@ -395,7 +395,7 @@ export class LayoutService implements OnDestroy {
 
   setPhotoTransform(
     node: LayoutNode,
-    transform: { scale: number; offsetX: number; offsetY: number },
+    transform: { scale: number; offsetX: number; offsetY: number; rotation?: number },
   ): void {
     if (
       !node.image ||
@@ -407,7 +407,8 @@ export class LayoutService implements OnDestroy {
     if (
       node.image.scale === transform.scale &&
       node.image.offsetX === transform.offsetX &&
-      node.image.offsetY === transform.offsetY
+      node.image.offsetY === transform.offsetY &&
+      (node.image.rotation || 0) === (transform.rotation ?? node.image.rotation ?? 0)
     )
       return;
     this.pushHistory();

@@ -82,6 +82,17 @@ describe('PhotoZone coordinates', () => {
     expect(zone.getTransform()).toContain(') scale(0.2)');
   });
 
+  it('refits a rotated photo around its center after the layout changes', () => {
+    const zone = new PhotoZone({ update: vi.fn() } as unknown as LayoutService, new ImageAssets());
+    zone.node = { id: 'photo', image: { src: 'photo', scale: 1, offsetX: 0, offsetY: 0, rotation: 90, __dirty: true } };
+    zone.onImageLoad({ target: { naturalWidth: 1000, naturalHeight: 500,
+      parentElement: { clientWidth: 200, clientHeight: 100 } } } as unknown as Event);
+    expect(zone.node.image!.scale).toBeCloseTo(0.4);
+    expect(zone.node.image!.offsetX).toBeCloseTo(200);
+    expect(zone.node.image!.offsetY).toBeCloseTo(-150);
+    expect(zone.node.image!.rotation).toBe(90);
+  });
+
   it('keeps the image point beneath the cursor fixed when zooming', () => {
     const zone = new PhotoZone(
       {
@@ -134,8 +145,61 @@ describe('PhotoZone coordinates', () => {
       pointerId: 1,
       preventDefault: vi.fn(),
     } as unknown as PointerEvent);
-    zone.onPointerMove({ clientX: 30, clientY: 50 } as PointerEvent);
+    zone.onPointerMove({ pointerId: 1, clientX: 30, clientY: 50, preventDefault: vi.fn() } as unknown as PointerEvent);
     expect(zone.node.image).toMatchObject({ offsetX: 40, offsetY: 60 });
+    zone.ngOnDestroy();
+  });
+
+  it('pinches around the moving midpoint and resumes dragging after a finger lifts', () => {
+    const layout = {
+      update: vi.fn(),
+      recordGesture: vi.fn(),
+      endGesture: vi.fn(),
+      selectNode: vi.fn(),
+    };
+    const zone = new PhotoZone(layout as unknown as LayoutService, new ImageAssets());
+    zone.node = {
+      id: 'photo',
+      image: { src: 'photo', offsetX: -50, offsetY: -20, scale: 0.5, __dirty: false },
+    };
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.dataset['previewScale'] = '0.5';
+    const frame = document.createElement('div');
+    page.append(frame);
+    frame.setPointerCapture = vi.fn();
+    frame.getBoundingClientRect = () => ({ left: 20, top: 10 }) as DOMRect;
+    const event = (pointerId: number, clientX: number, clientY: number) =>
+      ({
+        pointerId,
+        clientX,
+        clientY,
+        button: 0,
+        currentTarget: frame,
+        target: frame,
+        preventDefault: vi.fn(),
+      }) as unknown as PointerEvent;
+    zone.startPan(event(1, 70, 60));
+    zone.startPan(event(2, 170, 60));
+    zone.onPointerMove(event(2, 270, 60));
+    expect(zone.node.image).toMatchObject({
+      scale: 1,
+      offsetX: -200,
+      offsetY: -140,
+    });
+    zone.onPointerUp(event(2, 270, 60));
+    // The subsequent lost-capture event must not end the remaining finger's drag.
+    zone.onPointerUp(event(2, 270, 60));
+    zone.onPointerMove(event(1, 80, 70));
+    expect(zone.node.image).toMatchObject({
+      scale: 1,
+      offsetX: -180,
+      offsetY: -120,
+    });
+    zone.onPointerUp(event(1, 80, 70));
+    expect(layout.endGesture).toHaveBeenLastCalledWith('pan:photo');
+    zone.onPointerMove(event(1, 90, 80));
+    expect(zone.node.image!.offsetX).toBe(-180);
     zone.ngOnDestroy();
   });
 

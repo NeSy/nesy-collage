@@ -4,6 +4,7 @@
   cdkDropList
   [cdkDropListAutoScrollDisabled]="true"
   [cdkDropListSortingDisabled]="true"
+  (pointerdown)="startPan($event)"
   (wheel)="zoom($event)"
   (cdkDropListDropped)="drop($event)"
   [cdkDropListConnectedTo]="['libraryList']"
@@ -14,9 +15,21 @@
       [src]="assets.urlFor(node.image.src)"
       (load)="onImageLoad($event)"
       [style.transform]="getTransform()"
-      (pointerdown)="startPan($event)"
       draggable="false"
     />
+    @if (selected) {
+      <button
+        class="rotation-handle"
+        type="button"
+        [attr.aria-label]="'Rotate photo' | t"
+        [attr.title]="'Drag to rotate · Arrow keys 1° · Shift 0.1°' | t"
+        (pointerdown)="startRotation($event)"
+        (keydown)="rotateKey($event)"
+        (click)="$event.stopPropagation()"
+      >
+        ↻
+      </button>
+    }
   } @else {
     <div class="placeholder">
       {{

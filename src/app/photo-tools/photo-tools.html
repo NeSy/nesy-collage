@@ -9,7 +9,7 @@
       @if (layout.selection?.type === 'separator') {
         {{ 'Arrow keys move 1 px · Delete removes the split' | t }}
       } @else if (node?.image) {
-        {{ 'Drag to move · Scroll to zoom · Arrow keys move 1 px' | t }}
+        {{ 'Drag to move · Scroll to zoom · Pinch to zoom and rotate' | t }}
       } @else {
         {{ 'Choose a photo from the gallery or drag one into this frame' | t }}
       }
@@ -37,6 +37,38 @@
             [disabled]="!photoReady"
           >
             +
+          </button>
+        </div>
+        <div class="rotation-controls" role="group" [attr.aria-label]="'Photo rotation' | t">
+          <button
+            type="button"
+            (click)="rotate(-90)"
+            [disabled]="!photoReady"
+            [attr.aria-label]="'Rotate left 90°' | t"
+            [attr.title]="'Rotate left 90°' | t"
+          >
+            ↶ 90°
+          </button>
+          <label class="angle-input">
+            <span>{{ 'Angle' | t }}</span>
+            <input
+              type="number"
+              step="0.1"
+              [attr.aria-label]="'Rotation angle' | t"
+              [value]="(selected.image.rotation || 0).toFixed(1)"
+              [disabled]="!photoReady"
+              (change)="setRotation($event)"
+            />
+            <span>°</span>
+          </label>
+          <button
+            type="button"
+            (click)="rotate(90)"
+            [disabled]="!photoReady"
+            [attr.aria-label]="'Rotate right 90°' | t"
+            [attr.title]="'Rotate right 90°' | t"
+          >
+            90° ↷
           </button>
         </div>
         <button

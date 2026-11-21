@@ -99,6 +99,9 @@ export function parseLayout(value: unknown): LayoutNode {
     const placement: ImagePlacement = {
       src,
       scale,
+      ...(image['rotation'] !== undefined
+        ? { rotation: finite(image['rotation'], 'Image rotation') }
+        : {}),
       offsetX: finite(image['offsetX'], 'Horizontal image offset'),
       offsetY: finite(image['offsetY'], 'Vertical image offset'),
       __dirty: image['__dirty'] === true,

@@ -19,6 +19,12 @@ describe('layout validation', () => {
     expect(parseLayout(value)).toEqual(split());
   });
 
+  it('preserves photo rotation in saved projects while accepting older placements', () => {
+    const rotated = { ...photo(), image: { ...photo().image, rotation: -32.5 } };
+    expect(parseLayout(rotated)).toEqual(rotated);
+    expect(parseLayout(photo())).toEqual(photo());
+  });
+
   it.each([
     null,
     [],
@@ -45,6 +51,8 @@ describe('layout validation', () => {
     { ...photo(), image: { ...photo().image, src: 'data:image/png;base64,!!!!' } },
     { ...photo(), image: { ...photo().image, scale: 0 } },
     { ...photo(), image: { ...photo().image, offsetX: Infinity } },
+    { ...photo(), image: { ...photo().image, rotation: Infinity } },
+    { ...photo(), image: { ...photo().image, rotation: '90' } },
     { ...photo(), image: { ...photo().image, __dirty: 'yes' } },
   ])('rejects malformed layout %#', (value) => {
     expect(() => parseLayout(value)).toThrow();

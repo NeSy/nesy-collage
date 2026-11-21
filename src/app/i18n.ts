@@ -4,6 +4,17 @@ import { GERMAN } from './i18n.de';
 
 export type Language = 'en' | 'fr' | 'de';
 const FRENCH: Record<string, string> = {
+  'Photo rotation': 'Rotation de la photo',
+  'Rotate left 90°': 'Tourner à gauche de 90°',
+  'Rotate right 90°': 'Tourner à droite de 90°',
+  'Angle': 'Angle',
+  'Rotation angle': 'Angle de rotation',
+  'Rotate photo': 'Tourner la photo',
+  'Drag to rotate · Arrow keys 1° · Shift 0.1°': 'Glisser pour tourner · Flèches 1° · Maj 0,1°',
+  'Drag to move · Scroll to zoom · Pinch to zoom and rotate':
+    'Glisser pour déplacer · Défiler pour zoomer · Pincer pour zoomer et tourner',
+  'Image rotation': 'Rotation de l’image',
+
   Pages: 'Pages',
   Page: 'Page',
   'Current page': 'Page actuelle',

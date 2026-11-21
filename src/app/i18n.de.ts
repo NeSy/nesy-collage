@@ -1,4 +1,16 @@
 export const GERMAN: Record<string, string> = {
+  'Photo rotation': 'Fotodrehung',
+  'Rotate left 90°': '90° nach links drehen',
+  'Rotate right 90°': '90° nach rechts drehen',
+  'Angle': 'Winkel',
+  'Rotation angle': 'Drehwinkel',
+  'Rotate photo': 'Foto drehen',
+  'Drag to rotate · Arrow keys 1° · Shift 0.1°':
+    'Zum Drehen ziehen · Pfeiltasten 1° · Umschalt 0,1°',
+  'Drag to move · Scroll to zoom · Pinch to zoom and rotate':
+    'Ziehen zum Verschieben · Scrollen zum Zoomen · Mit zwei Fingern zoomen und drehen',
+  'Image rotation': 'Bilddrehung',
+
   Pages: 'Seiten',
   Page: 'Seite',
   'Current page': 'Aktuelle Seite',

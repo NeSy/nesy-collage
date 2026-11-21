@@ -1,3 +1,4 @@
+import { transformAround } from './photo-transform';
 import { TranslatePipe } from '../i18n';
 import { ChangeDetectionStrategy, Component, HostListener, Input, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -30,6 +31,9 @@ export class PhotoZone implements OnDestroy {
   @Input({ required: true }) node!: LayoutNode;
 
   private isPanning = false;
+  private pointers = new Map<number, { x: number; y: number }>();
+  private gestureFrame?: HTMLElement;
+  private rotationDrag?: { pointerId: number; frame: HTMLElement; angle: number };
 
   private startPointerX = 0;
   private startPointerY = 0;
@@ -49,7 +53,10 @@ export class PhotoZone implements OnDestroy {
     const imgEl = event.target as HTMLImageElement;
     const container = imgEl.parentElement as HTMLElement;
 
-    const containerRect = { width: container.clientWidth, height: container.clientHeight };
+    const containerRect = {
+      width: container.clientWidth,
+      height: container.clientHeight,
+    };
 
     const imgNaturalWidth = imgEl.naturalWidth;
     const imgNaturalHeight = imgEl.naturalHeight;
@@ -57,8 +64,15 @@ export class PhotoZone implements OnDestroy {
     if (!imgNaturalWidth || !imgNaturalHeight || !containerRect.width || !containerRect.height)
       return;
 
-    const scaleX = containerRect.width / imgNaturalWidth;
-    const scaleY = containerRect.height / imgNaturalHeight;
+    const angle = ((this.node.image.rotation || 0) * Math.PI) / 180;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const scaleX =
+      (Math.abs(cosine) * containerRect.width + Math.abs(sine) * containerRect.height) /
+      imgNaturalWidth;
+    const scaleY =
+      (Math.abs(sine) * containerRect.width + Math.abs(cosine) * containerRect.height) /
+      imgNaturalHeight;
 
     const scale = Math.max(scaleX, scaleY);
     this.node.image.scale = scale;
@@ -66,8 +80,10 @@ export class PhotoZone implements OnDestroy {
     const renderedWidth = imgNaturalWidth * scale;
     const renderedHeight = imgNaturalHeight * scale;
 
-    this.node.image.offsetX = (containerRect.width - renderedWidth) / 2;
-    this.node.image.offsetY = (containerRect.height - renderedHeight) / 2;
+    this.node.image.offsetX =
+      (containerRect.width - renderedWidth * cosine + renderedHeight * sine) / 2;
+    this.node.image.offsetY =
+      (containerRect.height - renderedWidth * sine - renderedHeight * cosine) / 2;
     this.node.image.__dirty = false;
 
     this.layout.update();
@@ -76,8 +92,9 @@ export class PhotoZone implements OnDestroy {
   startPan(event: PointerEvent): void {
     if (!this.node.image) return;
 
-    if (event.button !== 0 || this.isPanning) return;
+    if (event.button !== 0 || this.pointers.has(event.pointerId) || this.pointers.size >= 2) return;
     event.preventDefault();
+    if (this.rotationDrag) return;
     this.layout.endGesture(this.zoomKey);
     if (this.zoomTimer) clearTimeout(this.zoomTimer);
     this.layout.selectNode(this.node);
@@ -86,41 +103,157 @@ export class PhotoZone implements OnDestroy {
     this.wheelMomentum = 0;
     this.lastWheelTime = -Infinity;
 
-    this.panPreviewScale = getPreviewScale(event.target as HTMLElement);
+    const target = (event.currentTarget as HTMLElement) || (event.target as HTMLElement);
+    this.gestureFrame = target;
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    this.panPreviewScale = getPreviewScale(target);
     this.startPointerX = event.clientX;
     this.startPointerY = event.clientY;
 
     this.startOffsetX = this.node.image.offsetX;
     this.startOffsetY = this.node.image.offsetY;
 
-    (event.target as HTMLElement).setPointerCapture(event.pointerId);
+    target.setPointerCapture(event.pointerId);
   }
 
   @HostListener('pointermove', ['$event'])
   onPointerMove(event: PointerEvent): void {
+    if (this.rotationDrag?.pointerId === event.pointerId && this.node.image) {
+      event.preventDefault();
+      const angle = this.pointerAngle(event, this.rotationDrag.frame);
+      const delta =
+        (Math.atan2(
+          Math.sin(angle - this.rotationDrag.angle),
+          Math.cos(angle - this.rotationDrag.angle),
+        ) *
+          180) /
+        Math.PI;
+      this.rotate(delta, this.rotationDrag.frame, true);
+      this.rotationDrag.angle = angle;
+      return;
+    }
     if (!this.isPanning || !this.node.image) return;
 
-    const dx = (event.clientX - this.startPointerX) / this.panPreviewScale;
-    const dy = (event.clientY - this.startPointerY) / this.panPreviewScale;
+    const previous = this.pointers.get(event.pointerId);
+    if (!previous) return;
+    event.preventDefault();
+    const other = [...this.pointers.entries()].find(([id]) => id !== event.pointerId)?.[1];
+    const next = { x: event.clientX, y: event.clientY };
+    this.pointers.set(event.pointerId, next);
 
-    if (
-      this.node.image.offsetX === this.startOffsetX + dx &&
-      this.node.image.offsetY === this.startOffsetY + dy
-    )
-      return;
-    this.layout.recordGesture(this.panKey);
-    this.node.image.offsetX = this.startOffsetX + dx;
-    this.node.image.offsetY = this.startOffsetY + dy;
-
+    if (other && this.gestureFrame) {
+      const oldDistance = Math.hypot(previous.x - other.x, previous.y - other.y);
+      const distance = Math.hypot(next.x - other.x, next.y - other.y);
+      if (!oldDistance || !distance) return;
+      const rect = this.gestureFrame.getBoundingClientRect();
+      const oldX = ((previous.x + other.x) / 2 - rect.left) / this.panPreviewScale;
+      const oldY = ((previous.y + other.y) / 2 - rect.top) / this.panPreviewScale;
+      const newX = ((next.x + other.x) / 2 - rect.left) / this.panPreviewScale;
+      const newY = ((next.y + other.y) / 2 - rect.top) / this.panPreviewScale;
+      const scale = Math.max(
+        Number.EPSILON,
+        Math.min(Number.MAX_SAFE_INTEGER, (this.node.image.scale * distance) / oldDistance),
+      );
+      const ratio = scale / this.node.image.scale;
+      this.layout.recordGesture(this.panKey);
+      const angle =
+        Math.atan2(next.y - other.y, next.x - other.x) -
+        Math.atan2(previous.y - other.y, previous.x - other.x);
+      const degrees = (Math.atan2(Math.sin(angle), Math.cos(angle)) * 180) / Math.PI;
+      Object.assign(
+        this.node.image,
+        transformAround(this.node.image, degrees, ratio, oldX, oldY, newX, newY),
+      );
+    } else {
+      const dx = (event.clientX - this.startPointerX) / this.panPreviewScale;
+      const dy = (event.clientY - this.startPointerY) / this.panPreviewScale;
+      if (
+        this.node.image.offsetX === this.startOffsetX + dx &&
+        this.node.image.offsetY === this.startOffsetY + dy
+      )
+        return;
+      this.layout.recordGesture(this.panKey);
+      this.node.image.offsetX = this.startOffsetX + dx;
+      this.node.image.offsetY = this.startOffsetY + dy;
+    }
     this.layout.update();
   }
 
-  @HostListener('pointerup')
-  @HostListener('pointercancel')
-  @HostListener('lostpointercapture')
-  onPointerUp(): void {
+  @HostListener('pointerup', ['$event'])
+  @HostListener('pointercancel', ['$event'])
+  @HostListener('lostpointercapture', ['$event'])
+  onPointerUp(event: PointerEvent): void {
+    if (this.rotationDrag?.pointerId === event.pointerId) {
+      this.rotationDrag = undefined;
+      this.layout.endGesture(this.panKey);
+      return;
+    }
+    if (!this.pointers.delete(event.pointerId)) return;
+    const remaining = this.pointers.values().next().value;
+    if (remaining && this.node.image) {
+      this.startPointerX = remaining.x;
+      this.startPointerY = remaining.y;
+      this.startOffsetX = this.node.image.offsetX;
+      this.startOffsetY = this.node.image.offsetY;
+      return;
+    }
     this.isPanning = false;
+    this.gestureFrame = undefined;
     this.layout.endGesture(this.panKey);
+  }
+
+  get selected(): boolean {
+    return this.layout.isNodeSelected(this.node.id);
+  }
+
+  startRotation(event: PointerEvent): void {
+    event.stopPropagation();
+    if (!this.node.image || event.button !== 0 || this.isPanning) return;
+    event.preventDefault();
+    this.layout.endGesture(this.zoomKey);
+    if (this.zoomTimer) clearTimeout(this.zoomTimer);
+    const handle = event.currentTarget as HTMLElement;
+    const frame = handle.parentElement!;
+    this.rotationDrag = {
+      pointerId: event.pointerId,
+      frame,
+      angle: this.pointerAngle(event, frame),
+    };
+    handle.setPointerCapture(event.pointerId);
+  }
+
+  private pointerAngle(event: PointerEvent, frame: HTMLElement): number {
+    const rect = frame.getBoundingClientRect();
+    return Math.atan2(
+      event.clientY - rect.top - rect.height / 2,
+      event.clientX - rect.left - rect.width / 2,
+    );
+  }
+
+  rotate(degrees: number, frame: HTMLElement, gesture = false): void {
+    if (!this.node.image || !degrees) return;
+    const transform = transformAround(
+      this.node.image,
+      degrees,
+      1,
+      frame.clientWidth / 2,
+      frame.clientHeight / 2,
+    );
+    if (gesture) {
+      this.layout.recordGesture(this.panKey);
+      Object.assign(this.node.image, transform);
+      this.layout.update();
+    } else this.layout.setPhotoTransform(this.node, transform);
+  }
+
+  rotateKey(event: KeyboardEvent): void {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.rotate(
+      (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 0.1 : 1),
+      (event.currentTarget as HTMLElement).parentElement!,
+    );
   }
 
   drop(event: CdkDragDrop<unknown, unknown, { data: string; name: string }>): void {
@@ -129,7 +262,7 @@ export class PhotoZone implements OnDestroy {
   }
 
   zoom(event: WheelEvent): void {
-    if (!this.node.image || !event.deltaY || this.isPanning) return;
+    if (!this.node.image || !event.deltaY || this.isPanning || this.rotationDrag) return;
 
     event.preventDefault();
     const oldScale = this.node.image.scale;
@@ -179,7 +312,7 @@ export class PhotoZone implements OnDestroy {
       translate(
         ${this.node.image.offsetX}px,
         ${this.node.image.offsetY}px
-      ) scale(${this.node.image.scale})
+      ) scale(${this.node.image.scale}) rotate(${this.node.image.rotation || 0}deg)
     `;
   }
 }

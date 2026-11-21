@@ -47,3 +47,32 @@ img {
 img:active {
   cursor: grabbing;
 }
+
+.rotation-handle {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 1px 5px #0005;
+  font-size: 24px;
+  cursor: grab;
+  touch-action: none;
+}
+.rotation-handle:active {
+  cursor: grabbing;
+}
+:host-context(.print-view) .rotation-handle {
+  display: none;
+}
+@media (pointer: coarse), print {
+  .rotation-handle {
+    display: none;
+  }
+}

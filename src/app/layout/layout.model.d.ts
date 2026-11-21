@@ -29,6 +29,8 @@ export interface ImagePlacement {
   offsetX: number;
   offsetY: number;
   scale: number;
+  /** Clockwise degrees around the image origin; absent in older projects. */
+  rotation?: number;
   __dirty: boolean;
 }
 

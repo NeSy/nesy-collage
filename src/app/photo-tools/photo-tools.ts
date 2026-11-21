@@ -1,3 +1,4 @@
+import { transformAround } from '../photo-zone/photo-transform';
 import { I18n, TranslatePipe } from '../i18n';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Workspace } from '../workspace';
@@ -109,10 +110,15 @@ export class PhotoTools implements OnDestroy {
     if (!geometry) return;
     const { node, width, height, naturalWidth, naturalHeight } = geometry;
     const scale = node.image!.scale;
+    const angle = ((node.image!.rotation || 0) * Math.PI) / 180;
+    const centerX =
+      (scale * (naturalWidth * Math.cos(angle) - naturalHeight * Math.sin(angle))) / 2;
+    const centerY =
+      (scale * (naturalWidth * Math.sin(angle) + naturalHeight * Math.cos(angle))) / 2;
     this.layout.setPhotoTransform(node, {
       scale,
-      offsetX: (width - naturalWidth * scale) / 2,
-      offsetY: (height - naturalHeight * scale) / 2,
+      offsetX: width / 2 - centerX,
+      offsetY: height / 2 - centerY,
     });
   }
 
@@ -123,9 +129,26 @@ export class PhotoTools implements OnDestroy {
     const scale = Math.max(width / naturalWidth, height / naturalHeight);
     this.layout.setPhotoTransform(node, {
       scale,
+      rotation: 0,
       offsetX: (width - naturalWidth * scale) / 2,
       offsetY: (height - naturalHeight * scale) / 2,
     });
+  }
+
+  rotate(degrees: number): void {
+    const geometry = this.geometry();
+    if (!geometry) return;
+    const { node, width, height } = geometry;
+    this.layout.setPhotoTransform(
+      node,
+      transformAround(node.image!, degrees, 1, width / 2, height / 2),
+    );
+  }
+
+  setRotation(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.value.trim() || !Number.isFinite(input.valueAsNumber)) return;
+    this.rotate(input.valueAsNumber - (this.node?.image?.rotation || 0));
   }
 
   zoom(factor: number): void {
