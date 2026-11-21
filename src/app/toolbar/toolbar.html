@@ -151,6 +151,19 @@
     </div>
     @if (layout.mode === 'polaroid') {
       <div class="control-group">
+        <label for="subtitle-font">{{ 'Subtitle font' | t }}</label>
+        <select
+          id="subtitle-font"
+          [value]="layout.subtitleFont"
+          [attr.title]="'Applies to all subtitles on all pages' | t"
+          (change)="layout.setSubtitleFont($any($event.target).value)"
+        >
+          <option value="handwriting">{{ 'Handwriting' | t }}</option>
+          <option value="serif">Georgia</option>
+          <option value="monospace">Courier New</option>
+        </select>
+      </div>
+      <div class="control-group">
         <label for="grid-columns">{{ 'Columns' | t }}</label>
         <select
           id="grid-columns"

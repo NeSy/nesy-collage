@@ -29,6 +29,30 @@ describe('LayoutService', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shares the subtitle font across pages and preserves it through save and undo', () => {
+    service.setMode('polaroid');
+    service.addPage();
+    service.setSubtitleFont('serif');
+    expect(
+      service.pages.every((page) => page.presentation?.subtitleFont === 'serif'),
+    ).toBe(true);
+    expect(
+      JSON.parse(service.serializeProject()).pages.every(
+        (page: any) => page.presentation.subtitleFont === 'serif',
+      ),
+    ).toBe(true);
+    service.undo();
+    expect(service.subtitleFont).toBe('handwriting');
+    service.redo();
+    service.setGridColumns('3');
+    service.setMode('tree');
+    service.addPage();
+    expect(service.subtitleFont).toBe('serif');
+    expect(
+      service.pages.every((page) => page.presentation?.subtitleFont === 'serif'),
+    ).toBe(true);
+  });
+
   it('keeps page layouts independent and counts photo use across pages', () => {
     service.assignImage(service.layout, 'shared.jpg');
     const firstId = service.layout.id;
@@ -143,13 +167,19 @@ describe('LayoutService', () => {
 
   it('uses a secure browser picker and writes the current project atomically', async () => {
     vi.stubGlobal('isSecureContext', true);
-    const writable = { write: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined), abort: vi.fn().mockResolvedValue(undefined) };
+    const writable = {
+      write: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+    };
     const picker = vi.fn().mockResolvedValue({ createWritable: async () => writable });
     vi.stubGlobal('showSaveFilePicker', picker);
     const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     service.assignImage(service.layout, 'photo.jpg');
     await service.save();
-    expect(picker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: 'collage-layout.json' }));
+    expect(picker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: 'collage-layout.json' }),
+    );
     expect(JSON.parse(writable.write.mock.calls[0][0]).image.src).toBe('photo.jpg');
     expect(writable.close).toHaveBeenCalledOnce();
     expect(download).not.toHaveBeenCalled();
@@ -162,8 +192,13 @@ describe('LayoutService', () => {
 
   it('treats a canceled Save As dialog as a no-op without a fallback download', async () => {
     vi.stubGlobal('isSecureContext', true);
-    vi.stubGlobal('showSaveFilePicker', vi.fn().mockRejectedValue(new DOMException('Canceled', 'AbortError')));
-    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal(
+      'showSaveFilePicker',
+      vi.fn().mockRejectedValue(new DOMException('Canceled', 'AbortError')),
+    );
+    const download = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
     const before = service.serializeProject();
     await service.save();
     expect(service.error).toBe('');
@@ -260,9 +295,9 @@ describe('LayoutService', () => {
   it('leaves the document, selection, and history untouched on invalid import', async () => {
     const root = service.layout;
     const selection = service.selection;
-    expect(await service.importLayout('{"id":"root","direction":"vertical","ratio":0.5}')).toBe(
-      false,
-    );
+    expect(
+      await service.importLayout('{"id":"root","direction":"vertical","ratio":0.5}'),
+    ).toBe(false);
     expect(service.layout).toBe(root);
     expect(service.selection).toBe(selection);
     expect(service.canUndo).toBe(false);
@@ -378,7 +413,10 @@ describe('LayoutService', () => {
         }),
       ),
     ).toBe(true);
-    expect(service.photoZones.map((node) => node.subtitle)).toEqual(['Été à Paris', 'Family']);
+    expect(service.photoZones.map((node) => node.subtitle)).toEqual([
+      'Été à Paris',
+      'Family',
+    ]);
   });
   it('nudges photos by one document pixel independently of image scale and groups key repeats', () => {
     service.assignImage(service.layout, 'photo');
@@ -388,7 +426,11 @@ describe('LayoutService', () => {
     for (const key of ['ArrowRight', 'ArrowRight', 'ArrowDown'])
       expect(service.nudgeSelection(key)).toBe(true);
     service.endGesture(`nudge:${service.layout.id}`);
-    expect(service.layout.image).toMatchObject({ offsetX: -8, offsetY: 6, scale: 0.25 });
+    expect(service.layout.image).toMatchObject({
+      offsetX: -8,
+      offsetY: 6,
+      scale: 0.25,
+    });
     service.undo();
     expect(service.layout.image).toMatchObject({ offsetX: -10, offsetY: 5 });
     service.redo();
@@ -409,9 +451,9 @@ describe('LayoutService', () => {
       expect((service.layout.ratio! - 0.5) * 788).toBeCloseTo(1, 10);
       expect(service.nudgeSelection(backward, 788)).toBe(true);
       expect(service.layout.ratio).toBeCloseTo(0.5, 10);
-      expect(service.nudgeSelection(direction === 'vertical' ? 'ArrowUp' : 'ArrowRight', 788)).toBe(
-        false,
-      );
+      expect(
+        service.nudgeSelection(direction === 'vertical' ? 'ArrowUp' : 'ArrowRight', 788),
+      ).toBe(false);
     },
   );
 
@@ -518,22 +560,38 @@ describe('LayoutService', () => {
     service.setMode('polaroid');
     service.setSubtitle(service.layout, 'Keep this caption');
     service.assignImage(service.layout, 'photo.png', 'Photo');
-    service.setPhotoTransform(service.layout, { scale: 2, offsetX: -20, offsetY: 30 });
+    service.setPhotoTransform(service.layout, {
+      scale: 2,
+      offsetX: -20,
+      offsetY: 30,
+    });
     service.removePhoto();
     expect(service.layout.image).toBeUndefined();
     expect(service.layout.subtitle).toBe('Keep this caption');
     expect(service.photoZones).toHaveLength(1);
     service.undo();
-    expect(service.layout.image).toMatchObject({ scale: 2, offsetX: -20, offsetY: 30 });
+    expect(service.layout.image).toMatchObject({
+      scale: 2,
+      offsetX: -20,
+      offsetY: 30,
+    });
     service.undo();
-    expect(service.layout.image).toMatchObject({ scale: 1, offsetX: 0, offsetY: 0 });
+    expect(service.layout.image).toMatchObject({
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+    });
   });
 
   it('tracks photo usage across frame edits and undo without recounting during crop changes', () => {
     service.setMode('polaroid');
     service.assignImage(service.layout, 'photo.png', 'Photo');
     const usage = service.photoUsage();
-    service.setPhotoTransform(service.layout, { scale: 2, offsetX: -20, offsetY: 0 });
+    service.setPhotoTransform(service.layout, {
+      scale: 2,
+      offsetX: -20,
+      offsetY: 0,
+    });
     expect(service.photoUsage()).toBe(usage);
     service.addFrame();
     service.assignImage(service.selection!.node, 'photo.png', 'Photo');
@@ -565,7 +623,11 @@ describe('LayoutService', () => {
     service.layout.image!.offsetY = -30;
     service.layout.image!.scale = 2;
     service.assignImage(service.layout, 'photo.png', 'Photo');
-    expect(service.layout.image).toMatchObject({ offsetX: -45, offsetY: -30, scale: 2 });
+    expect(service.layout.image).toMatchObject({
+      offsetX: -45,
+      offsetY: -30,
+      scale: 2,
+    });
     service.undo();
     expect(service.layout.image).toBeUndefined();
   });

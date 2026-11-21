@@ -3,6 +3,7 @@ export type LayoutMode = 'tree' | 'polaroid';
 export interface LayoutPresentation {
   mode: LayoutMode;
   columns: number;
+  subtitleFont?: 'handwriting' | 'serif' | 'monospace';
 }
 
 export type SplitDirection = 'horizontal' | 'vertical';

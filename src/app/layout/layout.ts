@@ -88,7 +88,11 @@ export class LayoutService implements OnDestroy {
   addPage(): void {
     if (this.pages.length >= 100) return;
     this.pushHistory();
-    const presentation = { mode: this.mode, columns: this.gridColumns };
+    const presentation = {
+      ...this.rootNode.presentation,
+      mode: this.mode,
+      columns: this.gridColumns,
+    };
     this.pageNodes.push({ id: crypto.randomUUID(), presentation });
     this.activePageIndex = this.pages.length - 1;
     this.update(true);
@@ -132,6 +136,37 @@ export class LayoutService implements OnDestroy {
   get gridColumns(): number {
     return this.rootNode.presentation?.columns ?? 2;
   }
+  get subtitleFont() {
+    return this.pages[0].presentation?.subtitleFont ?? 'handwriting';
+  }
+
+  get subtitleFontFamily(): string {
+    return {
+      handwriting: "'Caveat', cursive",
+      serif: 'Georgia, serif',
+      monospace: "'Courier New', monospace",
+    }[this.subtitleFont];
+  }
+
+  setSubtitleFont(value: string): void {
+    if (
+      (value !== 'handwriting' &&
+        value !== 'serif' &&
+        value !== 'monospace') ||
+      value === this.subtitleFont
+    )
+      return;
+    this.pushHistory();
+    for (const page of this.pageNodes) {
+      page.presentation = {
+        mode: page.presentation?.mode ?? 'tree',
+        columns: page.presentation?.columns ?? 2,
+        subtitleFont: value,
+      };
+    }
+    this.update();
+  }
+
   get gridRows(): number {
     return Math.max(
       Math.ceil(this.gridColumns * 1.1),
@@ -142,7 +177,11 @@ export class LayoutService implements OnDestroy {
   setMode(mode: string): void {
     if ((mode !== 'tree' && mode !== 'polaroid') || mode === this.mode) return;
     this.pushHistory();
-    this.rootNode.presentation = { mode, columns: this.gridColumns };
+    this.rootNode.presentation = {
+      ...this.rootNode.presentation,
+      mode,
+      columns: this.gridColumns,
+    };
     this.initializeSubtitles(true);
     this.refitPhotos();
     // A separator has no visual counterpart in a grid.
@@ -161,7 +200,11 @@ export class LayoutService implements OnDestroy {
     )
       return;
     this.pushHistory();
-    this.rootNode.presentation = { mode: this.mode, columns };
+    this.rootNode.presentation = {
+      ...this.rootNode.presentation,
+      mode: this.mode,
+      columns,
+    };
     this.refitPhotos();
     this.update();
   }
@@ -395,7 +438,12 @@ export class LayoutService implements OnDestroy {
 
   setPhotoTransform(
     node: LayoutNode,
-    transform: { scale: number; offsetX: number; offsetY: number; rotation?: number },
+    transform: {
+      scale: number;
+      offsetX: number;
+      offsetY: number;
+      rotation?: number;
+    },
   ): void {
     if (
       !node.image ||
@@ -438,12 +486,18 @@ export class LayoutService implements OnDestroy {
     try {
       const desktop = window.desktop;
       // Open the picker during the click's user activation, before any asynchronous work.
-      const picker = !desktop && window.isSecureContext && window.showSaveFilePicker
-        ? window.showSaveFilePicker({
-            suggestedName: 'collage-layout.json',
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-          })
-        : undefined;
+      const picker =
+        !desktop && window.isSecureContext && window.showSaveFilePicker
+          ? window.showSaveFilePicker({
+              suggestedName: 'collage-layout.json',
+              types: [
+                {
+                  description: 'JSON',
+                  accept: { 'application/json': ['.json'] },
+                },
+              ],
+            })
+          : undefined;
       const handle = picker ? await picker : undefined;
       const project = this.serializeProject();
       if (desktop) {

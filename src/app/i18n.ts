@@ -4,10 +4,15 @@ import { GERMAN } from './i18n.de';
 
 export type Language = 'en' | 'fr' | 'de';
 const FRENCH: Record<string, string> = {
+  'Subtitle font': 'Police des légendes',
+  Handwriting: 'Manuscrite',
+  'Applies to all subtitles on all pages':
+    'S’applique à toutes les légendes de toutes les pages',
+  'Invalid subtitle font.': 'Police des légendes invalide.',
   'Photo rotation': 'Rotation de la photo',
   'Rotate left 90°': 'Tourner à gauche de 90°',
   'Rotate right 90°': 'Tourner à droite de 90°',
-  'Angle': 'Angle',
+  Angle: 'Angle',
   'Rotation angle': 'Angle de rotation',
   'Rotate photo': 'Tourner la photo',
   'Drag to rotate · Arrow keys 1° · Shift 0.1°': 'Glisser pour tourner · Flèches 1° · Maj 0,1°',
@@ -249,7 +254,10 @@ export class I18n {
     }
   }
 
-  t(key: string | null | undefined, params: Record<string, string | number> = {}): string {
+  t(
+    key: string | null | undefined,
+    params: Record<string, string | number> = {},
+  ): string {
     if (!key) return '';
     const messages =
       this.language() === 'de' ? GERMAN : this.language() === 'fr' ? FRENCH : ENGLISH;
@@ -259,11 +267,16 @@ export class I18n {
       if (invalidFile) return this.t('Not an image', { name: invalidFile[1] });
       const failedImport = /^Could not import (.*?)\. (.*)$/.exec(key);
       if (failedImport)
-        return this.t('Import failed', { name: failedImport[1], detail: this.t(failedImport[2]) });
+        return this.t('Import failed', {
+          name: failedImport[1],
+          detail: this.t(failedImport[2]),
+        });
       const finiteNumber = /^(.*) must be a finite number\.$/.exec(key);
       if (finiteNumber) {
         if (this.language() === 'de')
-          return this.t('Finite number required', { name: this.t(finiteNumber[1]) });
+          return this.t('Finite number required', {
+            name: this.t(finiteNumber[1]),
+          });
         return 'La valeur « ' + finiteNumber[1] + ' » doit être un nombre fini.';
       }
     }
@@ -277,7 +290,10 @@ export class I18n {
 @Pipe({ name: 't', pure: false })
 export class TranslatePipe implements PipeTransform {
   constructor(private i18n: I18n) {}
-  transform(key: string | null | undefined, params?: Record<string, string | number>): string {
+  transform(
+    key: string | null | undefined,
+    params?: Record<string, string | number>,
+  ): string {
     return this.i18n.t(key, params);
   }
 }

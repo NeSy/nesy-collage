@@ -1,8 +1,12 @@
 export const GERMAN: Record<string, string> = {
+  'Subtitle font': 'Untertitelschrift',
+  Handwriting: 'Handschrift',
+  'Applies to all subtitles on all pages': 'Gilt für alle Untertitel auf allen Seiten',
+  'Invalid subtitle font.': 'Ungültige Untertitelschrift.',
   'Photo rotation': 'Fotodrehung',
   'Rotate left 90°': '90° nach links drehen',
   'Rotate right 90°': '90° nach rechts drehen',
-  'Angle': 'Winkel',
+  Angle: 'Winkel',
   'Rotation angle': 'Drehwinkel',
   'Rotate photo': 'Foto drehen',
   'Drag to rotate · Arrow keys 1° · Shift 0.1°':

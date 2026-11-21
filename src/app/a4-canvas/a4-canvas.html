@@ -46,7 +46,7 @@
               >
                 <app-photo-zone [node]="zone"></app-photo-zone>
               </div>
-              <app-polaroid-subtitle [subtitle]="zone.subtitle || ''"></app-polaroid-subtitle>
+              <app-polaroid-subtitle [subtitle]="zone.subtitle || ''" [fontFamily]="layout.subtitleFontFamily"></app-polaroid-subtitle>
               <button
                 type="button"
                 class="caption-edit"

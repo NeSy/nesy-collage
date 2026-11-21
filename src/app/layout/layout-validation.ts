@@ -124,7 +124,21 @@ export function parseLayout(value: unknown): LayoutNode {
     ) {
       return fail('Grid columns must be an integer between 1 and 4.');
     }
-    root.presentation = { mode, columns };
+    const subtitleFont = settings['subtitleFont'] === 'sans'
+      ? 'handwriting'
+      : settings['subtitleFont'];
+    if (
+      subtitleFont !== undefined &&
+      subtitleFont !== 'handwriting' &&
+      subtitleFont !== 'serif' &&
+      subtitleFont !== 'monospace'
+    )
+      return fail('Invalid subtitle font.');
+    root.presentation = {
+      mode,
+      columns,
+      ...(subtitleFont ? { subtitleFont } : {}),
+    };
   }
   return root;
 }

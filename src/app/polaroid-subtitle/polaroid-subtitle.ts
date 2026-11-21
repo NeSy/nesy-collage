@@ -11,10 +11,12 @@ import {
 @Component({
   selector: 'app-polaroid-subtitle',
   template: '<span #text>{{ subtitle }}</span>',
+  host: { '[style.font-family]': 'fontFamily' },
   styleUrl: './polaroid-subtitle.scss',
 })
 export class PolaroidSubtitle implements AfterViewInit, OnChanges, OnDestroy {
   @Input() subtitle = '';
+  @Input() fontFamily = "'Caveat', cursive";
   @ViewChild('text') private text!: ElementRef<HTMLSpanElement>;
   private observer?: ResizeObserver;
   private frame: number | null = null;
