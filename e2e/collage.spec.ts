@@ -106,7 +106,7 @@ test('opens the correct frame subtitle from its border, clears with undo and ret
   await expect(editor).toBeFocused();
   await editor.fill('Summer in Paris');
   await expect(page.locator('.subtitle-count')).toHaveText('15/80');
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await editor.press('Enter');
   await page.getByRole('button', { name: 'Edit subtitle for frame 2', exact: true }).click();
   await expect(editor).toBeFocused();
   await editor.fill('Family memories');
@@ -128,7 +128,7 @@ test('opens the correct frame subtitle from its border, clears with undo and ret
   );
   await expect(editor).toBeFocused();
   await expect(editor).toHaveValue('Summer in Paris');
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('tab', { name: 'Canvas', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Canvas', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',

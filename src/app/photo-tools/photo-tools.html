@@ -131,15 +131,6 @@
           >
             ×
           </button>
-          <button
-            type="button"
-            class="subtitle-done"
-            [attr.aria-label]="'Done' | t"
-            [attr.title]="'Done' | t"
-            (click)="subtitleInput.blur(); endSubtitleEdit(); workspace.showPanel('canvas')"
-          >
-            ✓
-          </button>
         </div>
         <p id="subtitle-help">{{ 'Printed in the white border. Click the border to edit.' | t }}</p>
       </div>
